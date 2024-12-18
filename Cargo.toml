@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+
+members = [ "crates/cairo-type-derive","crates/os"]
+
+[workspace.dependencies]
+cairo-vm = {git = "https://github.com/lambdaclass/cairo-vm", rev = "95d2c88fcd4ef799ff64fc392efd633c05fa37e4", features = ["cairo-1-hints"]}
+anyhow = "1.0.94"
+serde = "1.0.216"
+serde_with = "3.11.0"
+blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73"}
+starknet_api = "0.13.0-rc.1"
+starknet-core = "0.11.1"
+num-bigint = "0.4.6"
+cairo-lang-starknet-classes = "2.6.0-rc.0"
+thiserror = "2.0.7"
+ark-secp256k1 = "0.4.0"
+ark-secp256r1 = "0.4.0"
+ark-ec = "0.4.2"
+serde_json = "1.0.133"
+tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
+indoc = "2.0.5"
+cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
+log = "0.4.22"
+starknet-crypto = "0.6.2"
+num-traits = "0.2.19"
+c-kzg = "1.0.3"
+num-integer = "0.1.45"
+lazy_static = "1.5.0"
