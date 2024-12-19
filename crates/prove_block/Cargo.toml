@@ -1,0 +1,17 @@
+[package]
+name = "prove_block"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arcane-os = { workspace = true }
+arcane-os-type = { workspace = true }
+cairo-vm = { workspace = true }
+rpc-replay = { workspace = true }
+starknet = { workspace = true }
+starknet-core = { workspace = true }
+starknet-crypto = { workspace = true }
+thiserror = { workspace = true }
+starknet_api = { workspace = true }
+log = { workspace = true }
+blockifier = { workspace = true }

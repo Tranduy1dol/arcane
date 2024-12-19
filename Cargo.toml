@@ -1,16 +1,24 @@
 [workspace]
 resolver = "2"
 
-members = [ "crates/cairo-type-derive","crates/os"]
+members = [
+  "crates/cairo-type-derive",
+  "crates/os",
+  "crates/os-type",
+  "crates/prove_block",
+  "crates/rpc-replay",
+]
 
 [workspace.dependencies]
-cairo-vm = {git = "https://github.com/lambdaclass/cairo-vm", rev = "95d2c88fcd4ef799ff64fc392efd633c05fa37e4", features = ["cairo-1-hints"]}
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "95d2c88fcd4ef799ff64fc392efd633c05fa37e4", features = [
+  "cairo-1-hints",
+] }
 anyhow = "1.0.94"
 serde = "1.0.216"
 serde_with = "3.11.0"
-blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73"}
-starknet_api = "0.13.0-rc.1"
-starknet-core = "0.11.1"
+blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
+  "testing",
+] }
 num-bigint = "0.4.6"
 cairo-lang-starknet-classes = "2.6.0-rc.0"
 thiserror = "2.0.7"
@@ -22,8 +30,22 @@ tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 indoc = "2.0.5"
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
 log = "0.4.22"
-starknet-crypto = "0.6.2"
 num-traits = "0.2.19"
 c-kzg = "1.0.3"
 num-integer = "0.1.45"
 lazy_static = "1.5.0"
+arcane-os = { version = "0.1.0", path = "crates/os" }
+arcane-os-type = { version = "0.1.0", path = "crates/os-type" }
+starknet = "0.11.0"
+rpc-replay = { version = "0.1.0", path = "crates/rpc-replay" }
+starknet-core = "0.11.0"
+starknet-crypto = "0.6.2"
+starknet-types-core = { version = "0.1.5", features = [
+  "hash",
+  "prime-bigint",
+  "std",
+] }
+starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
+  "testing",
+], version = "0.13.0-rc.1" }
+flate2 = "1.0.32"

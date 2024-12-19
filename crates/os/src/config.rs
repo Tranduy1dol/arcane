@@ -6,7 +6,7 @@ use starknet_api::core::{ChainId, ContractAddress};
 const MAX_STEPS_PER_TX: u32 = 4_000_000;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
-pub const SEQUENCER_ADDR_0_13_2: &str = "0x795488c127693ffb36733cc054f9e2be39241a794a4877dc8fc1dbe52750488";
+pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
 
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]

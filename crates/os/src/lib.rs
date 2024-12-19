@@ -1,14 +1,16 @@
+#![feature(once_cell_try)]
+
 pub mod io;
 pub mod starknet;
 pub mod r#type;
 pub mod config;
 pub mod starkware_utils;
-mod execution;
-mod storage;
-mod error;
-mod hints;
-mod cairo_types;
-mod utils;
+pub mod execution;
+pub mod storage;
+pub mod error;
+pub mod hints;
+pub mod cairo_types;
+pub mod utils;
 
 use crate::error::ArcaneError;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
