@@ -5,47 +5,48 @@ members = [
   "crates/cairo-type-derive",
   "crates/os",
   "crates/os-type",
-  "crates/prove_block",
+  "crates/prove-block",
   "crates/rpc-replay",
 ]
 
 [workspace.dependencies]
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "95d2c88fcd4ef799ff64fc392efd633c05fa37e4", features = [
-  "cairo-1-hints",
-] }
 anyhow = "1.0.94"
-serde = "1.0.216"
-serde_with = "3.11.0"
-blockifier = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
-  "testing",
-] }
-num-bigint = "0.4.6"
-cairo-lang-starknet-classes = "2.6.0-rc.0"
-thiserror = "2.0.7"
-ark-secp256k1 = "0.4.0"
-ark-secp256r1 = "0.4.0"
-ark-ec = "0.4.2"
-serde_json = "1.0.133"
-tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
-indoc = "2.0.5"
-cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-log = "0.4.22"
-num-traits = "0.2.19"
-c-kzg = "1.0.3"
-num-integer = "0.1.45"
-lazy_static = "1.5.0"
 arcane-os = { version = "0.1.0", path = "crates/os" }
 arcane-os-type = { version = "0.1.0", path = "crates/os-type" }
-starknet = "0.11.0"
+ark-ec = "0.4.2"
+ark-secp256k1 = "0.4.0"
+ark-secp256r1 = "0.4.0"
+blockifier = { git = "https://github.com/Tranduy1dol/sequencer", rev = "50ac9347fed4b403390784433fc8471a23b8d6fd", features = [
+  "testing",
+] }
+c-kzg = "1.0.3"
+cairo-lang-starknet-classes = "2.6.4"
+cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
+cairo-vm = { git = "https://github.com/Tranduy1dol/cairo-vm", rev = "2283adcd07e5c2badc764c844c54d7a883bbc9fe", features = [
+  "cairo-1-hints",
+] }
+flate2 = "1.0.32"
+indoc = "2.0.5"
+lazy_static = "1.5.0"
+log = "0.4.22"
+num-bigint = "0.4.6"
+num-integer = "0.1.45"
+num-traits = "0.2.19"
 rpc-replay = { version = "0.1.0", path = "crates/rpc-replay" }
+serde = "1.0.216"
+serde_json = "1.0.133"
+serde_with = "3.11.0"
+starknet = "0.11.0"
 starknet-core = "0.11.0"
 starknet-crypto = "0.6.2"
+starknet-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
 starknet-types-core = { version = "0.1.5", features = [
   "hash",
   "prime-bigint",
   "std",
 ] }
-starknet_api = { git = "https://github.com/Moonsong-Labs/sequencer", rev = "6624e910c57db9a16f1607c1ed26f7d8f1114e73", features = [
+starknet_api = { git = "https://github.com/Tranduy1dol/sequencer", rev = "50ac9347fed4b403390784433fc8471a23b8d6fd", features = [
   "testing",
-], version = "0.13.0-rc.1" }
-flate2 = "1.0.32"
+] }
+thiserror = "2.0.7"
+tokio = { version = "1.37.0", features = ["rt-multi-thread"] }

@@ -1,10 +1,17 @@
-include = ["**/*.toml", "*.toml"]
+include = ["**/*.toml", "Cargo.toml"]
 
 [formatting]
 align_entries = false
 
 [[rule]]
-keys = ["dependencies", "dev-dependencies", "patch.crates-io"]
+keys = [
+  "dependencies",
+  "dev-dependencies",
+  "patch.crates-io",
+  "workspace",
+  "member",
+  "workspace.dependencies",
+]
 
 [rule.formatting]
 reorder_keys = true

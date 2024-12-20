@@ -1,7 +1,9 @@
 mod types;
 mod state_utils;
 mod utils;
+mod reexecute;
 
+use std::sync::Arc;
 use blockifier::state::cached_state::CachedState;
 use cairo_vm::vm::runners::cairo_pie::CairoPie;
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs};
@@ -17,8 +19,9 @@ use arcane_os_type::arcane_core_addons::LegacyContractDecompressionError;
 use arcane_os_type::error::ContractClassError;
 use rpc_replay::block_context::build_block_context;
 use rpc_replay::rpc_state_reader::AsyncRpcStateReader;
-use rpc_replay::transaction::ToBlockifierError;
+use rpc_replay::transaction::{starknet_rs_to_blockifier, ToBlockifierError};
 use rpc_replay::utils::FeltConversionError;
+use crate::reexecute::reexecute_transactions_with_blockifier;
 use crate::state_utils::get_formatted_state_update;
 use crate::types::starknet_rs_tx_to_internal_tx;
 
@@ -52,7 +55,7 @@ pub async fn prove_block(
     full_output: bool
 ) -> Result<(CairoPie, StarknetOsOutput), ProveBlockError> {
     // Create Madara Provider
-    let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_provider).unwrap()));
+    let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_provider).unwrap())));
 
     // Chain id
     let chain_id = provider.chain_id().await?.to_string();
@@ -83,21 +86,26 @@ pub async fn prove_block(
             panic!("Block is still pending!")
         }
     };
+    let old_block_hash = old_block_with_txs_hashes.block_hash;
 
     let block_context = build_block_context(chain_id, &block_with_txs)?;
 
     let (processed_state_update, traces) = get_formatted_state_update(&provider, previous_block_id, block_id).await?;
     let class_hash_to_compiled_class_hash = processed_state_update.class_hash_to_compiled_class_hash;
 
-    let blockifier_state_reader = AsyncRpcStateReader::new(provider, previous_block_id);
+    let blockifier_state_reader = AsyncRpcStateReader::new(&provider, previous_block_id);
     let mut blockifier_state = CachedState::new(blockifier_state_reader);
 
     assert_eq!(block_with_txs.transactions.len(), traces.len(), "Transactions and traces must have the same length");
 
     let mut txs = Vec::new();
     for (tx, trace) in block_with_txs.transactions.iter().zip(traces.iter()) {
-        let transaction =
+        let transaction = starknet_rs_to_blockifier(tx, trace, &block_context.block_info().gas_prices, &provider, block_number).await?;
+        txs.push(transaction);
     }
+
+    let tx_execution_infos =
+        reexecute_transactions_with_blockifier(&mut blockifier_state, &block_context, old_block_hash, txs)?;
 
     Ok(())
 }
