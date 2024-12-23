@@ -10,3 +10,4 @@ starknet = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+rpc-client = { workspace = true }

@@ -27,3 +27,6 @@ starknet-crypto = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+arcane-os-type = { workspace = true }
+starknet-types-core = { workspace = true }
+futures = { workspace = true }

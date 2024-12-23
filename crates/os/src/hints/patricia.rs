@@ -17,7 +17,7 @@ use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configur
 use crate::hints::vars;
 use crate::starknet::starknet_storage::StorageLeaf;
 use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_desents::patricia_guess_descents;
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
 use crate::starkware_utils::commitment_tree::update_tree::{build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
 use crate::utils::get_variable_from_root_exec_scope;
 

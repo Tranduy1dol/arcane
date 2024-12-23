@@ -15,3 +15,5 @@ starknet-core = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
+rpc-client = { workspace = true }
+num-bigint = { workspace = true }

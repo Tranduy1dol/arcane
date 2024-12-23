@@ -20,3 +20,24 @@ pub enum DeserializeError {
     #[error("Expected {0} bytes but got {1}")]
     LengthMismatch(usize, usize),
 }
+
+pub trait Serializable: Sized + SerializationPrefix {
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
+
+    fn deserialize(data: &[u8]) -> Result<Self, DeserializeError>;
+}
+
+pub trait SerializationPrefix {
+    fn class_name_prefix() -> Vec<u8> {
+        let type_name = std::any::type_name::<Self>().to_string();
+        // unwrap() is safe here, there is always at least one element
+        let struct_name = type_name.split("::").last().unwrap().to_snake_case();
+        struct_name.into_bytes()
+    }
+
+    /// Converts the class name to a lower case name with '_' as separators and returns the
+    /// bytes version of this name. For example HelloWorldAB -> b'hello_world_a_b'.
+    fn prefix() -> Vec<u8> {
+        Self::class_name_prefix()
+    }
+}

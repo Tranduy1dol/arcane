@@ -16,6 +16,7 @@ use starknet_api::StarknetApiError;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
+use rpc_client::client::RpcClient;
 
 #[derive(Error, Debug)]
 pub enum ToBlockifierError {
@@ -60,7 +61,7 @@ pub async fn starknet_rs_to_blockifier(
     sn_core_tx: &Transaction,
     trace: &TransactionTraceWithHash,
     gas_prices: &GasPrices,
-    client: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let blockifier_tx = match sn_core_tx {

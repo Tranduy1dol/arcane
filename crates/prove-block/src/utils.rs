@@ -1,6 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use blockifier::execution::call_info::CallInfo;
+use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
-use starknet_core::types::{ExecuteInvocation, FunctionInvocation, TransactionTrace, TransactionTraceWithHash};
+use starknet_api::core::ContractAddress;
+use starknet_api::state::StorageKey;
+use starknet_core::types::{BlockId, ExecuteInvocation, FunctionInvocation, TransactionTrace, TransactionTraceWithHash};
+use arcane_os::starkware_utils::commitment_tree::base_types::TreeIndex;
+use arcane_os::starkware_utils::commitment_tree::error::TreeError;
+use rpc_client::client::RpcClient;
+use rpc_client::pathfinder::proofs::PathfinderProof;
 
 pub(crate) fn get_subcalled_contracts_from_tx_traces(
     traces: &[TransactionTraceWithHash],
@@ -65,3 +73,60 @@ fn process_function_invocations(
         process_function_invocations(call, contracts, classes);
     }
 }
+
+pub(crate) fn get_all_accessed_keys(
+    tx_execution_infos: &[TransactionExecutionInfo],
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    for tx_execution_info in tx_execution_infos {
+        let accessed_keys_in_tx = get_accessed_keys_in_tx(tx_execution_info);
+        for (contract_address, storage_keys) in accessed_keys_in_tx {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+        }
+    }
+
+    accessed_keys_by_address
+}
+
+fn get_accessed_keys_in_tx(
+    tx_execution_info: &TransactionExecutionInfo,
+) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    for call_info in [
+        &tx_execution_info.validate_call_info,
+        &tx_execution_info.execute_call_info,
+        &tx_execution_info.fee_transfer_call_info,
+    ]
+        .into_iter()
+        .flatten()
+    {
+        let call_storage_keys = get_accessed_storage_keys(call_info);
+        for (contract_address, storage_keys) in call_storage_keys {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+        }
+    }
+
+    accessed_keys_by_address
+}
+
+fn get_accessed_storage_keys(call_info: &CallInfo) -> HashMap<ContractAddress, HashSet<StorageKey>> {
+    let mut accessed_keys_by_address: HashMap<ContractAddress, HashSet<StorageKey>> = HashMap::new();
+
+    let contract_address = &call_info.call.storage_address;
+    accessed_keys_by_address
+        .entry(*contract_address)
+        .or_default()
+        .extend(call_info.accessed_storage_keys.iter().copied());
+
+    for inner_call in &call_info.inner_calls {
+        let inner_call_storage_keys = get_accessed_storage_keys(inner_call);
+        for (contract_address, storage_keys) in inner_call_storage_keys {
+            accessed_keys_by_address.entry(contract_address).or_default().extend(storage_keys);
+        }
+    }
+
+    accessed_keys_by_address
+}
+

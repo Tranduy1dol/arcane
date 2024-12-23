@@ -7,6 +7,8 @@ const MAX_STEPS_PER_TX: u32 = 4_000_000;
 pub const DEFAULT_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const DEFAULT_DEPRECATED_FEE_TOKEN_ADDR: &str = "482bc27fc5627bf974a72b65c43aa8a0464a70aab91ad8379b56a4f17a84c3";
 pub const STORED_BLOCK_HASH_BUFFER: u64 = 10;
+pub const DEFAULT_STORAGE_TREE_HEIGHT: u64 = 251;
+
 
 #[serde_as]
 #[derive(Debug, Serialize, Clone, Deserialize, PartialEq)]

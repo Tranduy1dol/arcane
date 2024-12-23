@@ -11,6 +11,7 @@ pub mod error;
 pub mod hints;
 pub mod cairo_types;
 pub mod utils;
+pub mod crypto;
 
 use crate::error::ArcaneError;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
@@ -87,7 +88,7 @@ where PCS: PerContractStorage + 'static
     let os_output = StarknetOsOutput::from_run(&virtual_machine)?;
 
     virtual_machine.verify_auto_deductions().map_err(|e | ArcaneError::Runner(e.into()))?;
-    cairo_runner.read_return_values(&mut virtual_machine, allow_missing_builtin).map_err(|e| ArcaneError::Runner(e.into()))?;
+    cairo_runner.read_return_values(&mut virtual_machine).map_err(|e| ArcaneError::Runner(e.into()))?;
     cairo_runner.relocate(&mut virtual_machine, cairo_run_config.relocate_mem).map_err(|e| ArcaneError::Runner(e.into()))?;
 
     let pie = cairo_runner.get_cairo_pie(&virtual_machine).map_err(|e| ArcaneError::PieParsing(format!("{e}")))?;

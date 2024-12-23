@@ -8,6 +8,7 @@ use arcane_os_type::compiled_class::GenericCompiledClass;
 use arcane_os_type::sierra_contract_class::GenericSierraContractClass;
 use arcane_os_type::casm_contract_class::GenericCasmContractClass;
 use arcane_os_type::deprecated_compiled_class::GenericDeprecatedCompiledClass;
+use rpc_client::client::RpcClient;
 use crate::ProveBlockError;
 use crate::utils::get_subcalled_contracts_from_tx_traces;
 
@@ -21,7 +22,7 @@ pub struct FormattedStateUpdate {
 }
 
 pub(crate) async fn get_formatted_state_update(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     block_id: BlockId,
     previous_block_id: BlockId,
 ) -> Result<(FormattedStateUpdate, Vec<TransactionTraceWithHash>), ProveBlockError> {

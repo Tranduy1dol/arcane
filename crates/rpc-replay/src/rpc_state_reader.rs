@@ -6,15 +6,16 @@ use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::JsonRpcClient;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
+use rpc_client::client::RpcClient;
 use crate::utils::execute_coroutine;
 
 pub struct AsyncRpcStateReader {
-    rpc_client: &'static JsonRpcClient<HttpTransport>,
+    rpc_client: RpcClient,
     block_id: BlockId,
 }
 
 impl AsyncRpcStateReader {
-    pub fn new(rpc_client: &JsonRpcClient<HttpTransport>, block_id: BlockId) -> Self {
+    pub fn new(rpc_client: RpcClient, block_id: BlockId) -> Self {
         Self { rpc_client, block_id }
     }
 }

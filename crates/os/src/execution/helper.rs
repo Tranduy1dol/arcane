@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::vec::IntoIter;
 use blockifier::context::BlockContext;
@@ -8,10 +9,12 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use cairo_vm::types::relocatable::Relocatable;
 use tokio::sync::RwLock;
+use crate::config::STORED_BLOCK_HASH_BUFFER;
 use crate::execution::secp_handler::SecpSyscallProcessor;
 use crate::io::input::StarknetOsInput;
 use crate::starknet::core::os::kzg_manager::KzgManager;
-use crate::starknet::starknet_storage::PerContractStorage;
+use crate::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
+use crate::storage::error::StorageError;
 
 pub type ContractStorageMap<PCS> = HashMap<Felt252, PCS>;
 
@@ -68,5 +71,49 @@ where
 {
     fn clone(&self) -> Self {
         Self { execution_helper: self.execution_helper.clone() }
+    }
+}
+
+impl<PCS> ExecutionHelperWrapper<PCS>
+where
+    PCS: PerContractStorage + 'static,
+{
+    pub fn new(
+        contract_storage_map: ContractStorageMap<PCS>,
+        tx_execution_infos: Vec<TransactionExecutionInfo>,
+        block_context: &BlockContext,
+        os_input: Option<Rc<StarknetOsInput>>,
+        old_block_number_and_hash: (Felt252, Felt252),
+    ) -> Self {
+        // Block number and block hash (current_block_number - buffer) block buffer=STORED_BLOCK_HASH_BUFFER
+        // Hash that is going to be written by this OS run
+        let prev_block_context = block_context
+            .block_info()
+            .block_number
+            .0
+            .checked_sub(STORED_BLOCK_HASH_BUFFER)
+            .map(|_| block_context.clone());
+
+        Self {
+            execution_helper: Rc::new(RwLock::new(ExecutionHelper {
+                _prev_block_context: prev_block_context,
+                os_input,
+                kzg_manager: Default::default(),
+                tx_execution_info_iter: tx_execution_infos.into_iter(),
+                tx_execution_info: None,
+                tx_info_ptr: None,
+                call_iter: vec![].into_iter(),
+                call_execution_info_ptr: None,
+                old_block_number_and_hash: Some(old_block_number_and_hash),
+                call_info: None,
+                result_iter: vec![].into_iter(),
+                deployed_contracts_iter: vec![].into_iter(),
+                execute_code_read_iter: vec![].into_iter(),
+                storage_by_address: contract_storage_map,
+                secp256k1_syscall_processor: Default::default(),
+                secp256r1_syscall_processor: Default::default(),
+                sha256_segment: None,
+            })),
+        }
     }
 }
