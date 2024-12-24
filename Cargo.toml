@@ -22,7 +22,7 @@ blockifier = { git = "https://github.com/Tranduy1dol/sequencer", rev = "50ac9347
 c-kzg = "1.0.3"
 cairo-lang-starknet-classes = "2.6.4"
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Tranduy1dol/cairo-vm", rev = "2283adcd07e5c2badc764c844c54d7a883bbc9fe", features = [
+cairo-vm = { git = "https://github.com/Tranduy1dol/cairo-vm", rev = "0274f0cb2d5b1d27cc06be9b44c59677c1b5f1db", features = [
   "cairo-1-hints",
 ] }
 flate2 = "1.0.32"

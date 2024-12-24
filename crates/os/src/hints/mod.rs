@@ -182,7 +182,7 @@ pub fn is_on_curve(
     Ok(())
 }
 
-const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 12] = to_felt_or_relocatable(len(os_input.transactions))";
+const OS_INPUT_TRANSACTIONS: &str = "memory[fp + 8] = to_felt_or_relocatable(len(os_input.transactions))";
 
 pub fn os_input_transactions(
     vm: &mut VirtualMachine,

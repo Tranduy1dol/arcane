@@ -1,5 +1,7 @@
 use cairo_vm::Felt252;
 use cairo_vm::vm::errors::hint_errors::HintError;
+use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
+use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SyscallSelector {
@@ -80,4 +82,20 @@ impl TryFrom<Felt252> for SyscallSelector {
             _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {}", raw_selector).into())),
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum SyscallExecutionError {
+    #[error("Internal Error: {0}")]
+    InternalError(Box<str>),
+    #[error("Invalid address domain: {address_domain:?}")]
+    InvalidAddressDomain { address_domain: Felt252 },
+    #[error("Invalid syscall input: {input:?}; {info}")]
+    InvalidSyscallInput { input: Felt252, info: String },
+    #[error("Syscall error.")]
+    SyscallError { error_data: Vec<Felt252> },
+    #[error("Out of Gas in Syscall execution. Remaining gas is {remaining_gas}")]
+    OutOfGas { remaining_gas: u64 },
+    #[error("BlockifierSyscallError: {0}")]
+    BlockifierSyscallError(BlockifierSyscallError),
 }

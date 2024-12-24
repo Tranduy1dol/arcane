@@ -1,14 +1,10 @@
-use std::collections::{HashMap, HashSet};
 use blockifier::execution::call_info::CallInfo;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
-use starknet_core::types::{BlockId, ExecuteInvocation, FunctionInvocation, TransactionTrace, TransactionTraceWithHash};
-use arcane_os::starkware_utils::commitment_tree::base_types::TreeIndex;
-use arcane_os::starkware_utils::commitment_tree::error::TreeError;
-use rpc_client::client::RpcClient;
-use rpc_client::pathfinder::proofs::PathfinderProof;
+use starknet_core::types::{ExecuteInvocation, FunctionInvocation, TransactionTrace, TransactionTraceWithHash};
+use std::collections::{HashMap, HashSet};
 
 pub(crate) fn get_subcalled_contracts_from_tx_traces(
     traces: &[TransactionTraceWithHash],

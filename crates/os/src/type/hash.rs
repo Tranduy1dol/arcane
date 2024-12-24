@@ -2,7 +2,7 @@ use std::ops::Deref;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash};
-use starknet_core::types::Felt;
+use starknet_types_core::felt::Felt;
 
 const EMPTY_HASH: [u8; 32] = [0; 32];
 

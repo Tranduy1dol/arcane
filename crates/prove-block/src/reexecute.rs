@@ -11,7 +11,8 @@ use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::transaction::TransactionHash;
-use starknet_core::types::{BlockId, Felt, StarknetError};
+use starknet_core::types::{BlockId, StarknetError};
+use starknet_types_core::felt::Felt;
 use arcane_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
 use arcane_os::crypto::pedersen::PedersenHash;
 use arcane_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
@@ -39,10 +40,6 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     } else {
         None
     };
-    // Block pre-processing.
-    // Writes the hash of the (current_block_number - N) block under its block number in the dedicated
-    // contract state, where N=STORED_BLOCK_HASH_BUFFER.
-    // https://github.com/starkware-libs/sequencer/blob/ee6513d338011067e46c55db4aa6926c8e57650e/crates/blockifier/src/blockifier/block.rs#L110
     pre_process_block(state, buffer_block_number_and_hash, current_block_number)?;
 
     let n_txs = txs.len();
@@ -191,7 +188,6 @@ impl PerContractStorage for ProverPerContractStorage {
             Some(*value)
         } else {
             let key_felt = Felt252::from(key.clone());
-            // TODO: this should be fallible
             let value = match self
                 .rpc_client
                 .starknet_rpc()

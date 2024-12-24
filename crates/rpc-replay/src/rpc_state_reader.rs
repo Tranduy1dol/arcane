@@ -1,11 +1,10 @@
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader, StateResult};
-use starknet::core::types::{BlockId, Felt};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::JsonRpcClient;
+use starknet::core::types::BlockId;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 use rpc_client::client::RpcClient;
 use crate::utils::execute_coroutine;
 

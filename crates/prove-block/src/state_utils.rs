@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 use cairo_vm::Felt252;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Provider, ProviderError};
-use starknet_core::types::{BlockId, Felt, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
+use starknet_core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
+use starknet_types_core::felt::Felt;
 use arcane_os_type::class_hash_utils::ContractClassComponentHashes;
 use arcane_os_type::compiled_class::GenericCompiledClass;
 use arcane_os_type::sierra_contract_class::GenericSierraContractClass;
@@ -14,11 +15,10 @@ use crate::utils::get_subcalled_contracts_from_tx_traces;
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
-    // TODO: Use more descriptive types
-    pub class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252>,
-    pub compiled_classes: HashMap<Felt252, GenericCasmContractClass>,
-    pub deprecated_compiled_classes: HashMap<Felt252, GenericDeprecatedCompiledClass>,
-    pub declared_class_hash_component_hashes: HashMap<Felt252, ContractClassComponentHashes>,
+    pub class_hash_to_compiled_class_hash: HashMap<Felt, Felt>,
+    pub compiled_classes: HashMap<Felt, GenericCasmContractClass>,
+    pub deprecated_compiled_classes: HashMap<Felt, GenericDeprecatedCompiledClass>,
+    pub declared_class_hash_component_hashes: HashMap<Felt, ContractClassComponentHashes>,
 }
 
 pub(crate) async fn get_formatted_state_update(
@@ -65,7 +65,7 @@ pub(crate) async fn get_formatted_state_update(
 }
 
 async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     previous_block_id: BlockId,
     block_id: BlockId,
     accessed_addresses: &HashSet<Felt252>,
@@ -119,7 +119,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     for class_hash in accessed_classes {
         let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
         add_compiled_class_to_os_input(
-            *class_hash,
+            *Felt252::from(class_hash),
             contract_class,
             class_hash_to_compiled_class_hash,
             &mut compiled_contract_classes,
@@ -140,7 +140,7 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
 }
 
 async fn add_compiled_class_from_contract_to_os_input(
-    provider: &JsonRpcClient<HttpTransport>,
+    provider: &RpcClient,
     contract_address: Felt252,
     block_id: BlockId,
     class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
@@ -173,7 +173,6 @@ fn add_compiled_class_to_os_input(
     let compiled_class = compile_contract_class(contract_class)?;
     let compiled_class_hash = compiled_class.class_hash()?;
 
-    // Remove deprecated classes from HashMap
     if matches!(&compiled_class, GenericCompiledClass::Cairo0(_)) {
         log::warn!("Skipping deprecated class for ch_to_cch: 0x{:x}", class_hash);
     } else {

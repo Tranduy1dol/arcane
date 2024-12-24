@@ -23,13 +23,9 @@ pub struct GenericSierraContractClass {
 #[serde_as]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlattenedSierraClassWithAbi {
-    /// The list of sierra instructions of which the program consists
     pub sierra_program: Vec<Felt>,
-    /// The version of the contract class object. Currently, the Starknet os supports version 0.1.0
     pub contract_class_version: String,
-    /// Entry points by type
     pub entry_points_by_type: EntryPointsByType,
-    /// ABI, deserialized
     pub abi: Option<cairo_lang_starknet_classes::abi::Contract>,
 }
 
@@ -123,8 +119,6 @@ impl GenericSierraContractClass {
 
     pub fn compile(&self) -> Result<GenericCasmContractClass, ContractClassError> {
         let cairo_lang_class = self.get_cairo_lang_contract_class()?.clone();
-        // Values taken from the defaults of `starknet-sierra-compile`, see here:
-        // https://github.com/starkware-libs/cairo/blob/main/crates/bin/starknet-sierra-compile/src/main.rs
         let add_pythonic_hints = false;
         let max_bytecode_size = 180000;
         let casm_contract_class =

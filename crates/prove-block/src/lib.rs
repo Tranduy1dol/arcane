@@ -1,9 +1,12 @@
+#![feature(async_iter_from_iter)]
+
 pub mod types;
 pub mod state_utils;
 pub mod utils;
 pub mod reexecute;
 pub mod rpc_utils;
 
+use std::async_iter::FromIter;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::reexecute::{format_commitment_facts, reexecute_transactions_with_blockifier, ProverPerContractStorage};
@@ -25,7 +28,8 @@ use rpc_replay::utils::FeltConversionError;
 use starknet::core::types::{BlockId, MaybePendingBlockWithTxs};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::StarknetApiError;
-use starknet_core::types::{Felt, StarknetError};
+use starknet_core::types::StarknetError;
+use starknet_types_core::felt::Felt;
 use thiserror::Error;
 use arcane_os::crypto::pedersen::PedersenHash;
 use arcane_os::crypto::poseidon::PoseidonHash;
@@ -39,7 +43,6 @@ use arcane_os::starkware_utils::commitment_tree::patricia_tree::patricia_tree::P
 use rpc_client::client::RpcClient;
 use rpc_client::pathfinder::proofs::{PathfinderClassProof, ProofVerificationError};
 use crate::rpc_utils::{get_class_proofs, get_storage_proofs};
-use crate::utils::ProverPerContractStorage;
 
 #[derive(Debug, Error)]
 pub enum ProveBlockError {
@@ -224,13 +227,12 @@ pub async fn prove_block(
         .await
         .expect("Failed to fetch previous class proofs");
 
-    let visited_pcs: HashMap<Felt252, Vec<Felt252>> = blockifier_state
+    let visited_pcs: HashMap<Felt, Vec<Felt252>> = blockifier_state
         .visited_pcs
         .iter()
         .map(|(class_hash, visited_pcs)| {
             (class_hash.0, visited_pcs.iter().copied().map(Felt252::from).collect::<Vec<_>>())
-        })
-        .collect();
+        }).collect();
 
     // We can extract data from any storage proof, use the one of the block hash contract
     let block_hash_storage_proof =
@@ -288,7 +290,7 @@ pub async fn prove_block(
         transactions,
         declared_class_hash_to_component_hashes: declared_class_hash_component_hashes,
         new_block_hash: block_with_txs.block_hash,
-        prev_block_hash: previous_block.block_hash,
+        prev_block_hash: previous_block_with_txs.block_hash,
         full_output,
     });
     let execution_helper = ExecutionHelperWrapper::<ProverPerContractStorage>::new(
@@ -299,7 +301,7 @@ pub async fn prove_block(
         (Felt252::from(old_block_number), Felt252::from(old_block_hash)),
     );
 
-    Ok(run_os(compiled_os, layout, os_input, block_context, execution_helper)?)
+    Ok(run_os(complied_os, layout, os_input, block_context, execution_helper)?)
 }
 
 fn compute_class_commitment(

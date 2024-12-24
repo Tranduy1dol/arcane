@@ -5,7 +5,7 @@ use num_bigint::BigInt;
 use starknet_api::contract_address;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
-use starknet_core::types::Felt;
+use starknet_types_core::felt::Felt;
 use arcane_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use arcane_os::starkware_utils::commitment_tree::base_types::Height;
 use rpc_client::client::RpcClient;
@@ -21,7 +21,6 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
-        // We need to fetch the storage proof for the block hash contract
         keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
         keys
     };

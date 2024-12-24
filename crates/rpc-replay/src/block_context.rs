@@ -3,10 +3,11 @@ use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
 use blockifier::versioned_constants::{StarknetVersion, VersionedConstants};
-use starknet::core::types::{BlockWithTxs, Felt, L1DataAvailabilityMode};
+use starknet::core::types::{BlockWithTxs, L1DataAvailabilityMode};
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::contract_address;
 use starknet_api::core::ChainId;
+use starknet_types_core::felt::Felt;
 use crate::utils::{felt_to_u128, FeltConversionError};
 
 fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
@@ -43,7 +44,6 @@ pub fn build_block_context(
 
     let chain_info = ChainInfo {
         chain_id: ChainId::Other(chain_id),
-        // cf. https://docs.starknet.io/tools/important-addresses/
         fee_token_addresses: FeeTokenAddresses {
             strk_fee_token_address: contract_address!(
                 "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"

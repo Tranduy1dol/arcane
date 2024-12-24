@@ -22,45 +22,27 @@ const KZG_N_BLOBS_OFFSET: usize = 1;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ContractChanges {
-    /// The address of the contract.
     pub addr: Felt252,
-    /// The new nonce of the contract (for account contracts).
     pub nonce: Felt252,
-    /// The new class hash (if changed).
     pub class_hash: Option<Felt252>,
-    /// A map from storage key to its new value.
     pub storage_changes: HashMap<Felt252, Felt252>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StarknetOsOutput {
-    /// The root before.
     pub initial_root: Felt252,
-    /// The root after.
     pub final_root: Felt252,
-    /// The previous block number.
     pub prev_block_number: Felt252,
-    /// The current block number.
     pub new_block_number: Felt252,
-    /// The previous block hash.
     pub prev_block_hash: Felt252,
-    /// The current block hash.
     pub new_block_hash: Felt252,
-    /// The hash of the OS program, if the aggregator was used. Zero if the OS was used directly.
     pub os_program_hash: Felt252,
-    /// The hash of the OS config.
     pub starknet_os_config_hash: Felt252,
-    /// Whether KZG data availability was used.
     pub use_kzg_da: Felt252,
-    /// Indicates whether previous state values are included in the state update information.
     pub full_output: Felt252,
-    /// Messages from L2 to L1.
     pub messages_to_l1: Vec<Felt252>,
-    /// Messages from L1 to L2.
     pub messages_to_l2: Vec<Felt252>,
-    /// The list of contracts that were changed.
     pub contracts: Vec<ContractChanges>,
-    /// The list of classes that were declared. A map from class hash to compiled class hash.
     pub classes: HashMap<Felt252, Felt252>,
 }
 
@@ -142,7 +124,6 @@ where
     let full_output = header[FULL_OUTPUT_OFFSET];
 
     if !use_kzg_da.is_zero() {
-        // Skip KZG data.
         let kzg_segment: Vec<_> = output_iter.by_ref().take(2).collect();
         let n_blobs: usize = kzg_segment
             .get(KZG_N_BLOBS_OFFSET)
@@ -150,7 +131,6 @@ where
             .to_biguint()
             .try_into()
             .expect("n_blobs should fit in a usize");
-        // Skip 'n_blobs' commitments and evaluations.
         let _: Vec<_> = output_iter.by_ref().take(2 * 2 * n_blobs).collect();
     }
 

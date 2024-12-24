@@ -96,7 +96,6 @@ impl GenericDeprecatedCompiledClass {
 
     fn compute_class_hash(&self) -> Result<GenericClassHash, ContractClassError> {
         let serialized_class = self.get_serialized_contract_class()?;
-        /// TODO: Add Madara compute class hash
         let class_hash =
             compute_class_hash(serialized_class).map_err(|e| ContractClassError::HashError(e.to_string()))?;
 
@@ -118,8 +117,6 @@ impl Serialize for GenericDeprecatedCompiledClass {
         } else if let Some(starknet_core_class) = self.starknet_core_contract_class.get() {
             starknet_core_class.serialize(serializer)
         } else if self.serialized_class.get().is_some() {
-            // It seems like there is no way to just pass the `serialized_class` field as the output
-            // of `serialize()`, so we are forced to serialize an actual class instance.
             let starknet_api_class =
                 self.get_starknet_api_contract_class().map_err(|e| serde::ser::Error::custom(e.to_string()))?;
             starknet_api_class.serialize(serializer)

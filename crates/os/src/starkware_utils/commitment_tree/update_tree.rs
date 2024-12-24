@@ -54,13 +54,10 @@ pub fn build_update_tree<LF>(height: Height, modifications: Vec<(TreeIndex, LF)>
 where
     LF: Clone,
 {
-    // Bottom layer. This will prefer the last modification to an index.
     if modifications.is_empty() {
         return None;
     }
 
-    // A layer is a dictionary from index in current merkle layer [0, 2**layer_height) to a tree.
-    // A tree is either None, a leaf, or a pair of trees.
     let mut layer: Layer<LF> =
         modifications.into_iter().map(|(index, leaf_fact)| (index, TreeUpdate::Leaf(leaf_fact))).collect();
 
@@ -78,9 +75,7 @@ where
         layer = new_layer;
     }
 
-    // We reached layer_height=0, the top layer with only the root (with index 0).
     debug_assert!(layer.len() == 1);
 
-    // unwrap() is safe here, 0 should always be in `layer` by construction
     Some(layer.remove(&0u64.into()).unwrap())
 }

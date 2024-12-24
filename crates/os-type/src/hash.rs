@@ -34,8 +34,6 @@ impl Hash {
         Self(bytes)
     }
 
-    /// Builds a `Hash` from a bytes slice.
-    /// The slice length must be <= 32.
     pub fn from_bytes_be_slice(bytes: &[u8]) -> Self {
         let mut array = [0u8; 32];
         let start = 32 - bytes.len();

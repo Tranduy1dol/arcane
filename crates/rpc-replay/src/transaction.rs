@@ -7,16 +7,16 @@ use blockifier::blockifier::block::GasPrices;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::errors::TransactionExecutionError;
-use starknet::core::types::{BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3, Felt, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionTrace, TransactionTraceWithHash};
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, ProviderError};
+use rpc_client::client::RpcClient;
+use starknet::core::types::{BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionTrace, TransactionTraceWithHash};
+use starknet::providers::{Provider, ProviderError};
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
 use starknet_api::transaction::{Fee, TransactionHash};
 use starknet_api::StarknetApiError;
+use starknet_types_core::felt::Felt;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use thiserror::Error;
-use rpc_client::client::RpcClient;
 
 #[derive(Error, Debug)]
 pub enum ToBlockifierError {
@@ -92,7 +92,7 @@ pub async fn starknet_rs_to_blockifier(
 
 async fn create_class_info(
     class_hash: Felt,
-    client: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<ClassInfo, ToBlockifierError> {
     // TODO: improve this to avoid retrieving this twice. Already done in lib.rs from prove-block
@@ -175,7 +175,7 @@ fn invoke_v3_to_blockifier(
 
 async fn declare_v1_to_blockifier(
     tx: &DeclareTransactionV1,
-    client: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
@@ -196,7 +196,7 @@ async fn declare_v1_to_blockifier(
 
 async fn declare_v2_to_blockifier(
     tx: &DeclareTransactionV2,
-    client: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
@@ -218,7 +218,7 @@ async fn declare_v2_to_blockifier(
 
 async fn declare_v3_to_blockifier(
     tx: &DeclareTransactionV3,
-    client: &JsonRpcClient<HttpTransport>,
+    client: &RpcClient,
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);

@@ -1,6 +1,5 @@
 #[derive(thiserror::Error, Debug)]
 pub enum SerializeError {
-    // Right now we keep the raw serde error available for easier debugging.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 
@@ -30,13 +29,10 @@ pub trait Serializable: Sized + SerializationPrefix {
 pub trait SerializationPrefix {
     fn class_name_prefix() -> Vec<u8> {
         let type_name = std::any::type_name::<Self>().to_string();
-        // unwrap() is safe here, there is always at least one element
         let struct_name = type_name.split("::").last().unwrap().to_snake_case();
         struct_name.into_bytes()
     }
 
-    /// Converts the class name to a lower case name with '_' as separators and returns the
-    /// bytes version of this name. For example HelloWorldAB -> b'hello_world_a_b'.
     fn prefix() -> Vec<u8> {
         Self::class_name_prefix()
     }
