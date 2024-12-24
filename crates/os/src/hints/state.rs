@@ -1,20 +1,27 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_relocatable_from_var_name};
+use crate::hints::vars;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_relocatable_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
-use crate::hints::vars;
+use std::collections::HashMap;
+use std::rc::Rc;
 
-fn assert_tree_height_eq_merkle_height(tree_height: Felt252, merkle_height: Felt252) -> Result<(), HintError> {
+fn assert_tree_height_eq_merkle_height(
+    tree_height: Felt252,
+    merkle_height: Felt252,
+) -> Result<(), HintError> {
     if tree_height != merkle_height {
         return Err(HintError::AssertionFailed(
-            format!("Tree height ({}) does not match Merkle height", tree_height).to_string().into_boxed_str(),
+            format!("Tree height ({}) does not match Merkle height", tree_height)
+                .to_string()
+                .into_boxed_str(),
         ));
     }
 
@@ -55,7 +62,10 @@ pub fn set_preimage_for_state_commitments(
     )?;
 
     // TODO: can we avoid this clone?
-    let preimage = os_input.contract_state_commitment_info.commitment_facts.clone();
+    let preimage = os_input
+        .contract_state_commitment_info
+        .commitment_facts
+        .clone();
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
@@ -99,10 +109,16 @@ pub fn set_preimage_for_class_commitments(
     )?;
 
     log::debug!("Setting class trie mode");
-    exec_scopes.data[0].insert(vars::scopes::PATRICIA_TREE_MODE.to_string(), any_box!(PatriciaTreeMode::Class));
+    exec_scopes.data[0].insert(
+        vars::scopes::PATRICIA_TREE_MODE.to_string(),
+        any_box!(PatriciaTreeMode::Class),
+    );
 
     // TODO: can we avoid this clone?
-    let preimage = os_input.contract_class_commitment_info.commitment_facts.clone();
+    let preimage = os_input
+        .contract_class_commitment_info
+        .commitment_facts
+        .clone();
     exec_scopes.insert_value(vars::scopes::PREIMAGE, preimage);
 
     let merkle_height = get_constant(vars::constants::MERKLE_HEIGHT, constants)?;
@@ -132,10 +148,15 @@ pub fn set_preimage_for_current_commitment_info(
 ) -> Result<(), HintError> {
     let commitment_info_by_address: &HashMap<Felt252, CommitmentInfo> =
         exec_scopes.get_ref(vars::scopes::COMMITMENT_INFO_BY_ADDRESS)?;
-    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
-    let commitment_info = commitment_info_by_address.get(&contract_address).ok_or(HintError::CustomHint(
-        format!("Could not find commitment info for contract {contract_address}").into_boxed_str(),
-    ))?;
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let commitment_info =
+        commitment_info_by_address
+            .get(&contract_address)
+            .ok_or(HintError::CustomHint(
+                format!("Could not find commitment info for contract {contract_address}")
+                    .into_boxed_str(),
+            ))?;
 
     insert_value_from_var_name(
         vars::ids::INITIAL_CONTRACT_STATE_ROOT,
@@ -190,16 +211,24 @@ pub fn load_edge(
 
     let preimage: HashMap<Felt252, Vec<Felt252>> = exec_scopes.get(vars::scopes::PREIMAGE)?;
     let node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
-    let node_values = preimage
-        .get(&node)
-        .ok_or(HintError::CustomHint("preimage does not contain expected edge".to_string().into_boxed_str()))?;
+    let node_values = preimage.get(&node).ok_or(HintError::CustomHint(
+        "preimage does not contain expected edge"
+            .to_string()
+            .into_boxed_str(),
+    ))?;
 
     if node_values.len() != 3 {
         return Err(HintError::CustomHint(
-            "preimage value does not appear to be a NodeEdge".to_string().into_boxed_str(),
+            "preimage value does not appear to be a NodeEdge"
+                .to_string()
+                .into_boxed_str(),
         ));
     }
-    let edge = NodeEdge { length: node_values[0], path: node_values[1], bottom: node_values[2] };
+    let edge = NodeEdge {
+        length: node_values[0],
+        path: node_values[1],
+        bottom: node_values[2],
+    };
     edge.to_memory(vm, new_segment_base)?;
 
     // TODO: prevent underflow (original hint doesn't appear to care)?
@@ -239,9 +268,11 @@ pub fn load_bottom(
 
     // TODO: avoid clone here
     let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
-    let preimage_vec = preimage
-        .get(&edge_bottom)
-        .ok_or(HintError::CustomHint("Edge bottom not found in preimage".to_string().into_boxed_str()))?;
+    let preimage_vec = preimage.get(&edge_bottom).ok_or(HintError::CustomHint(
+        "Edge bottom not found in preimage"
+            .to_string()
+            .into_boxed_str(),
+    ))?;
 
     let x = preimage_vec[0];
     let y = preimage_vec[1];
@@ -276,8 +307,14 @@ pub fn decode_node_hint(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
-    let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
-    let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
+    let node = node.ok_or(HintError::AssertionFailed(
+        "'node' should not be None".to_string().into_boxed_str(),
+    ))?;
+    let DecodedNode {
+        left_child,
+        right_child,
+        case,
+    } = decode_node(&node)?;
     exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
     exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
     exec_scopes.insert_value(vars::scopes::CASE, case.clone());
@@ -310,13 +347,18 @@ pub fn enter_scope_commitment_info_by_address<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper: ExecutionHelperWrapper<PCS> =
+        exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
     let os_input = exec_scopes.get::<Rc<StarknetOsInput>>(vars::scopes::OS_INPUT)?;
 
-    let commitment_info_by_address = execute_coroutine(execution_helper.compute_storage_commitments())??;
+    let commitment_info_by_address =
+        execute_coroutine(execution_helper.compute_storage_commitments())??;
 
     let new_scope = HashMap::from([
-        (vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(), any_box!(commitment_info_by_address)),
+        (
+            vars::scopes::COMMITMENT_INFO_BY_ADDRESS.to_string(),
+            any_box!(commitment_info_by_address),
+        ),
         (vars::scopes::OS_INPUT.to_string(), any_box!(os_input)),
     ]);
     exec_scopes.enter_scope(new_scope);
@@ -340,7 +382,10 @@ pub fn write_split_result(
     let value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     let res_ptr = get_relocatable_from_var_name(vars::ids::RES, vm, ids_data, ap_tracking)?;
 
-    let splits = split(value)?.into_iter().map(MaybeRelocatable::Int).collect::<Vec<MaybeRelocatable>>();
+    let splits = split(value)?
+        .into_iter()
+        .map(MaybeRelocatable::Int)
+        .collect::<Vec<MaybeRelocatable>>();
     vm.write_arg(res_ptr, &splits)?;
 
     Ok(())

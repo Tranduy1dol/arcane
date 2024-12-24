@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
+use crate::starkware_utils::commitment_tree::error::TreeError;
 use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use crate::starkware_utils::commitment_tree::base_types::TreeIndex;
-use crate::starkware_utils::commitment_tree::error::TreeError;
+use std::collections::HashMap;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CommitmentInfoError {

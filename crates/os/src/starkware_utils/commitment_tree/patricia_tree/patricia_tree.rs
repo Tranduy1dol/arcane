@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::r#type::hash::Hash;
 use crate::starkware_utils::commitment_tree::base_types::Height;
+use serde::{Deserialize, Serialize};
 
 pub const EMPTY_NODE_HASH: [u8; 32] = [0; 32];
 

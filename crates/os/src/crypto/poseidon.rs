@@ -1,6 +1,6 @@
-use starknet_crypto::{poseidon_hash, FieldElement};
-use arcane_os_type::hash::Hash;
 use crate::storage::storage::HashFunctionType;
+use arcane_os_type::hash::Hash;
+use starknet_crypto::{poseidon_hash, FieldElement};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PoseidonHash;

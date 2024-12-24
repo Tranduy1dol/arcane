@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use crate::starkware_utils::commitment_tree::base_types::{Height, TreeIndex};
 use crate::starkware_utils::commitment_tree::error::TreeError;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TreeUpdate<LF>
@@ -42,7 +42,11 @@ where
                 (false, false) => DecodeNodeCase::Both,
                 (true, true) => return Err(TreeError::IsEmpty),
             };
-            Ok(DecodedNode { left_child: left.as_ref(), right_child: right.as_ref(), case })
+            Ok(DecodedNode {
+                left_child: left.as_ref(),
+                right_child: right.as_ref(),
+                case,
+            })
         }
         TreeUpdate::Leaf(_) => Err(TreeError::IsLeaf),
     }
@@ -58,8 +62,10 @@ where
         return None;
     }
 
-    let mut layer: Layer<LF> =
-        modifications.into_iter().map(|(index, leaf_fact)| (index, TreeUpdate::Leaf(leaf_fact))).collect();
+    let mut layer: Layer<LF> = modifications
+        .into_iter()
+        .map(|(index, leaf_fact)| (index, TreeUpdate::Leaf(leaf_fact)))
+        .collect();
 
     for _ in 0..height.0 {
         let parents: HashSet<TreeIndex> = layer.keys().map(|key| key / 2u64).collect();
@@ -69,7 +75,10 @@ where
             let left_update = layer.get(&(&index * 2u64)).cloned();
             let right_update = layer.get(&(&index * 2u64 + 1u64)).cloned();
 
-            new_layer.insert(index, TreeUpdate::Tuple(Box::new(left_update), Box::new(right_update)));
+            new_layer.insert(
+                index,
+                TreeUpdate::Tuple(Box::new(left_update), Box::new(right_update)),
+            );
         }
 
         layer = new_layer;

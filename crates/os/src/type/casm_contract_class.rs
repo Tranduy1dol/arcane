@@ -1,7 +1,7 @@
-use std::cell::OnceCell;
-use std::sync::Arc;
 use crate::r#type::error::ContractClassError;
 use crate::r#type::hash::GenericClassHash;
+use std::cell::OnceCell;
+use std::sync::Arc;
 
 pub type BlockifierCasmClass = blockifier::execution::contract_class::ContractClassV1;
 pub type CairoLangCasmClass = cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;

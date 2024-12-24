@@ -7,7 +7,11 @@ pub fn chain_id_to_felt(chain_id: &ChainId) -> Felt252 {
 }
 
 pub fn chain_id_from_felt(felt: Felt) -> ChainId {
-    let chain_id_bytes: Vec<_> = felt.to_bytes_be().into_iter().skip_while(|byte| *byte == 0u8).collect();
+    let chain_id_bytes: Vec<_> = felt
+        .to_bytes_be()
+        .into_iter()
+        .skip_while(|byte| *byte == 0u8)
+        .collect();
     let chain_id_str = String::from_utf8_lossy(&chain_id_bytes);
     ChainId::from(chain_id_str.into_owned())
 }

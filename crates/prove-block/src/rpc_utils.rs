@@ -1,17 +1,19 @@
-use std::collections::HashMap;
+use crate::utils::get_all_accessed_keys;
+use arcane_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
+use arcane_os::starkware_utils::commitment_tree::base_types::Height;
 use blockifier::transaction::objects::TransactionExecutionInfo;
 use cairo_vm::Felt252;
 use num_bigint::BigInt;
+use rpc_client::client::RpcClient;
+use rpc_client::pathfinder::client::ClientError;
+use rpc_client::pathfinder::proofs::{
+    ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode,
+};
 use starknet_api::contract_address;
 use starknet_api::core::ContractAddress;
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
-use arcane_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
-use arcane_os::starkware_utils::commitment_tree::base_types::Height;
-use rpc_client::client::RpcClient;
-use rpc_client::pathfinder::client::ClientError;
-use rpc_client::pathfinder::proofs::{ContractData, EdgePath, PathfinderClassProof, PathfinderProof, ProofVerificationError, TrieNode};
-use crate::utils::get_all_accessed_keys;
+use std::collections::HashMap;
 
 pub(crate) async fn get_storage_proofs(
     client: &RpcClient,
@@ -21,7 +23,9 @@ pub(crate) async fn get_storage_proofs(
 ) -> Result<HashMap<Felt, PathfinderProof>, ClientError> {
     let accessed_keys_by_address = {
         let mut keys = get_all_accessed_keys(tx_execution_infos);
-        keys.entry(contract_address!("0x1")).or_default().insert(old_block_number.try_into().unwrap());
+        keys.entry(contract_address!("0x1"))
+            .or_default()
+            .insert(old_block_number.try_into().unwrap());
         keys
     };
 
@@ -31,8 +35,13 @@ pub(crate) async fn get_storage_proofs(
     for (contract_address, storage_keys) in accessed_keys_by_address {
         log::info!("    Fetching proof for {}", contract_address.to_string());
         let contract_address_felt = *contract_address.key();
-        let storage_proof =
-            get_storage_proof_for_contract(client, contract_address, storage_keys.into_iter(), block_number).await?;
+        let storage_proof = get_storage_proof_for_contract(
+            client,
+            contract_address,
+            storage_keys.into_iter(),
+            block_number,
+        )
+        .await?;
         storage_proofs.insert(contract_address_felt, storage_proof);
     }
 
@@ -49,7 +58,8 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     let keys: Vec<_> = storage_keys.map(|storage_key| *storage_key.key()).collect();
 
     let mut storage_proof =
-        fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number).await?;
+        fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &keys, block_number)
+            .await?;
 
     let contract_data = match &storage_proof.contract_data {
         None => {
@@ -62,8 +72,13 @@ async fn get_storage_proof_for_contract<KeyIter: Iterator<Item = StorageKey>>(
     // Fetch additional proofs required to fill gaps in the storage trie that could make
     // the OS crash otherwise.
     if !additional_keys.is_empty() {
-        let additional_proof =
-            fetch_storage_proof_for_contract(rpc_client, contract_address_felt, &additional_keys, block_number).await?;
+        let additional_proof = fetch_storage_proof_for_contract(
+            rpc_client,
+            contract_address_felt,
+            &additional_keys,
+            block_number,
+        )
+        .await?;
 
         storage_proof = merge_storage_proofs(vec![storage_proof, additional_proof]);
     }
@@ -78,14 +93,21 @@ async fn fetch_storage_proof_for_contract(
     block_number: u64,
 ) -> Result<PathfinderProof, ClientError> {
     let storage_proof = if keys.is_empty() {
-        rpc_client.pathfinder_rpc().get_proof(block_number, contract_address, &[]).await?
+        rpc_client
+            .pathfinder_rpc()
+            .get_proof(block_number, contract_address, &[])
+            .await?
     } else {
         // The endpoint is limited to 100 keys at most per call
         const MAX_KEYS: usize = 100;
         let mut chunked_storage_proofs = Vec::new();
         for keys_chunk in keys.chunks(MAX_KEYS) {
-            chunked_storage_proofs
-                .push(rpc_client.pathfinder_rpc().get_proof(block_number, contract_address, keys_chunk).await?);
+            chunked_storage_proofs.push(
+                rpc_client
+                    .pathfinder_rpc()
+                    .get_proof(block_number, contract_address, keys_chunk)
+                    .await?,
+            );
         }
         merge_storage_proofs(chunked_storage_proofs)
     };
@@ -114,7 +136,12 @@ fn merge_storage_proofs(proofs: Vec<PathfinderProof>) -> PathfinderProof {
         contract_data
     };
 
-    PathfinderProof { class_commitment, state_commitment, contract_proof, contract_data }
+    PathfinderProof {
+        class_commitment,
+        state_commitment,
+        contract_proof,
+        contract_data,
+    }
 }
 
 fn verify_storage_proof(contract_data: &ContractData, keys: &[Felt]) -> Vec<Felt> {
@@ -161,9 +188,13 @@ pub(crate) async fn get_class_proofs(
     block_number: u64,
     class_hashes: &[&Felt],
 ) -> Result<HashMap<Felt252, PathfinderClassProof>, ClientError> {
-    let mut proofs: HashMap<Felt252, PathfinderClassProof> = HashMap::with_capacity(class_hashes.len());
+    let mut proofs: HashMap<Felt252, PathfinderClassProof> =
+        HashMap::with_capacity(class_hashes.len());
     for class_hash in class_hashes {
-        let proof = rpc_client.pathfinder_rpc().get_class_proof(block_number, class_hash).await?;
+        let proof = rpc_client
+            .pathfinder_rpc()
+            .get_class_proof(block_number, class_hash)
+            .await?;
         proofs.insert(Felt252::from(**class_hash), proof);
     }
 

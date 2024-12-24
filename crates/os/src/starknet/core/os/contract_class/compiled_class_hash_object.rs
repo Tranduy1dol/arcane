@@ -1,11 +1,11 @@
-use std::ops::Deref;
+use crate::execution::syscall_handler_utils::SyscallExecutionError;
+use crate::r#type::hash::Hash;
+use crate::starkware_utils::commitment_tree::base_types::Length;
 use cairo_vm::Felt252;
 use futures::TryFutureExt;
 use num_bigint::BigUint;
 use starknet_crypto::{poseidon_hash_many, FieldElement};
-use crate::execution::syscall_handler_utils::SyscallExecutionError;
-use crate::r#type::hash::Hash;
-use crate::starkware_utils::commitment_tree::base_types::Length;
+use std::ops::Deref;
 
 #[derive(Clone, Debug)]
 pub enum BytecodeSegmentStructureImpl {
@@ -22,7 +22,9 @@ impl BytecodeSegmentedNode {
     fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
         for segment in &self.segments {
             if segment.is_used {
-                segment.inner_structure.add_bytecode_with_skipped_segments(data);
+                segment
+                    .inner_structure
+                    .add_bytecode_with_skipped_segments(data);
             } else {
                 data.push(Felt252::from(-1));
                 for _ in 0..(segment.segment_length.0 - 1) {
@@ -39,9 +41,13 @@ impl BytecodeSegmentedNode {
             felts.push(Felt252::from(segment.segment_length.0));
 
             let inner_hash = segment.inner_structure.hash()?;
-            felts.push(Felt252::from_bytes_be_slice(inner_hash.deref()).map_err(|_| {
-                SyscallExecutionError::InternalError("conversion from Hash to FieldElement failed".into())
-            })?);
+            felts.push(
+                Felt252::from_bytes_be_slice(inner_hash.deref()).map_err(|_| {
+                    SyscallExecutionError::InternalError(
+                        "conversion from Hash to FieldElement failed".into(),
+                    )
+                })?,
+            );
         }
 
         let ret = poseidon_hash_many(&felts) + Felt252::from(1u8);
@@ -76,13 +82,18 @@ impl BytecodeLeaf {
     }
 
     pub fn hash(&self) -> Result<Hash, SyscallExecutionError> {
-        let vec_field_elements: Result<Vec<_>, _> =
-            self.data.iter().map(|value| FieldElement::from_byte_slice_be(&value.to_bytes_be())).collect();
+        let vec_field_elements: Result<Vec<_>, _> = self
+            .data
+            .iter()
+            .map(|value| FieldElement::from_byte_slice_be(&value.to_bytes_be()))
+            .collect();
 
         let hash = match vec_field_elements {
             Ok(elements) => Hash::from_bytes_be(poseidon_hash_many(&elements).to_bytes_be()),
             Err(_) => {
-                return Err(SyscallExecutionError::InternalError("Invalid bytecode segment leaf".into()));
+                return Err(SyscallExecutionError::InternalError(
+                    "Invalid bytecode segment leaf".into(),
+                ));
             }
         };
 
@@ -102,8 +113,12 @@ impl BytecodeSegmentStructureImpl {
 
     fn add_bytecode_with_skipped_segments(&self, data: &mut Vec<Felt252>) {
         match self {
-            BytecodeSegmentStructureImpl::SegmentedNode(node) => node.add_bytecode_with_skipped_segments(data),
-            BytecodeSegmentStructureImpl::Leaf(leaf) => leaf.add_bytecode_with_skipped_segments(data),
+            BytecodeSegmentStructureImpl::SegmentedNode(node) => {
+                node.add_bytecode_with_skipped_segments(data)
+            }
+            BytecodeSegmentStructureImpl::Leaf(leaf) => {
+                leaf.add_bytecode_with_skipped_segments(data)
+            }
         }
     }
 

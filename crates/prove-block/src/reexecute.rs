@@ -1,5 +1,16 @@
-use std::collections::HashMap;
-use std::error::Error;
+use arcane_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
+use arcane_os::crypto::pedersen::PedersenHash;
+use arcane_os::starknet::starknet_storage::{
+    CommitmentInfo, CommitmentInfoError, PerContractStorage,
+};
+use arcane_os::starkware_utils::commitment_tree::base_types::{Length, NodePath, TreeIndex};
+use arcane_os::starkware_utils::commitment_tree::error::TreeError;
+use arcane_os::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
+use arcane_os::starkware_utils::commitment_tree::patricia_tree::nodes::{
+    BinaryNodeFact, EdgeNodeFact,
+};
+use arcane_os::storage::dict_storage::DictStorage;
+use arcane_os::storage::storage::{Fact, HashFunctionType};
 use blockifier::blockifier::block::{pre_process_block, BlockNumberHashPair};
 use blockifier::context::BlockContext;
 use blockifier::state::cached_state::CachedState;
@@ -9,21 +20,14 @@ use blockifier::transaction::objects::TransactionExecutionInfo;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use cairo_vm::Felt252;
+use rpc_client::client::RpcClient;
+use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::transaction::TransactionHash;
 use starknet_core::types::{BlockId, StarknetError};
 use starknet_types_core::felt::Felt;
-use arcane_os::config::{DEFAULT_STORAGE_TREE_HEIGHT, STORED_BLOCK_HASH_BUFFER};
-use arcane_os::crypto::pedersen::PedersenHash;
-use arcane_os::starknet::starknet_storage::{CommitmentInfo, CommitmentInfoError, PerContractStorage};
-use arcane_os::starkware_utils::commitment_tree::base_types::{Length, NodePath, TreeIndex};
-use arcane_os::starkware_utils::commitment_tree::error::TreeError;
-use arcane_os::starkware_utils::commitment_tree::inner_node_fact::InnerNodeFact;
-use arcane_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
-use arcane_os::storage::dict_storage::DictStorage;
-use arcane_os::storage::storage::{Fact, HashFunctionType};
-use rpc_client::client::RpcClient;
-use rpc_client::pathfinder::proofs::{ContractData, PathfinderProof, TrieNode};
+use std::collections::HashMap;
+use std::error::Error;
 
 pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     state: &mut CachedState<S>,
@@ -34,7 +38,9 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
     let current_block_number = block_context.block_info().block_number;
     let buffer_block_number_and_hash = if current_block_number.0 >= STORED_BLOCK_HASH_BUFFER {
         Some(BlockNumberHashPair {
-            number: starknet_api::block::BlockNumber(current_block_number.0 - STORED_BLOCK_HASH_BUFFER),
+            number: starknet_api::block::BlockNumber(
+                current_block_number.0 - STORED_BLOCK_HASH_BUFFER,
+            ),
             hash: starknet_api::block::BlockHash(buffer_block_hash),
         })
     } else {
@@ -51,7 +57,13 @@ pub fn reexecute_transactions_with_blockifier<S: StateReader>(
             let tx_result = tx.execute(state, block_context, true, true);
             match tx_result {
                 Err(e) => {
-                    panic!("Transaction {:x} ({}/{}) failed in blockifier: {}", tx_hash.0, index + 1, n_txs, e);
+                    panic!(
+                        "Transaction {:x} ({}/{}) failed in blockifier: {}",
+                        tx_hash.0,
+                        index + 1,
+                        n_txs,
+                        e
+                    );
                 }
                 Ok(info) => {
                     if info.is_reverted() {
@@ -98,24 +110,33 @@ pub(crate) fn format_commitment_facts<H: HashFunctionType>(
 
                     // TODO: the hash function should probably be split from the Fact trait.
                     //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
-                    let fact_as_tuple = <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
+                    let node_hash =
+                        Felt252::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                    let fact_as_tuple =
+                        <BinaryNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
 
                     (node_hash, fact_as_tuple)
                 }
                 TrieNode::Edge { child, path } => {
-                    let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
-                        .expect("storage proof endpoint gave us an invalid edge node");
+                    let fact = EdgeNodeFact::new(
+                        (*child).into(),
+                        NodePath(path.value.to_biguint()),
+                        Length(path.len),
+                    )
+                    .expect("storage proof endpoint gave us an invalid edge node");
                     // TODO: the hash function should probably be split from the Fact trait.
                     //       we use a placeholder for the Storage trait in the meantime.
-                    let node_hash = Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
-                    let fact_as_tuple = <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
+                    let node_hash =
+                        Felt252::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact));
+                    let fact_as_tuple =
+                        <EdgeNodeFact as InnerNodeFact<DictStorage, H>>::to_tuple(&fact);
 
                     (node_hash, fact_as_tuple)
                 }
             };
 
-            let fact_as_tuple_of_felts: Vec<_> = fact_as_tuple.into_iter().map(Felt252::from).collect();
+            let fact_as_tuple_of_felts: Vec<_> =
+                fact_as_tuple.into_iter().map(Felt252::from).collect();
             facts.insert(key, fact_as_tuple_of_felts);
         }
     }
@@ -164,7 +185,8 @@ impl PerContractStorage for ProverPerContractStorage {
 
         let updated_root = Felt252::from(contract_data.root);
 
-        let commitment_facts = format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
+        let commitment_facts =
+            format_commitment_facts::<PedersenHash>(&contract_data.storage_proofs);
 
         let previous_commitment_facts = match &self.previous_storage_proof.contract_data {
             None => HashMap::default(),
@@ -173,7 +195,10 @@ impl PerContractStorage for ProverPerContractStorage {
             }
         };
 
-        let commitment_facts = commitment_facts.into_iter().chain(previous_commitment_facts.into_iter()).collect();
+        let commitment_facts = commitment_facts
+            .into_iter()
+            .chain(previous_commitment_facts.into_iter())
+            .collect();
 
         Ok(CommitmentInfo {
             previous_root: self.previous_tree_root,
@@ -195,10 +220,12 @@ impl PerContractStorage for ProverPerContractStorage {
                 .await
             {
                 Ok(value) => Ok(Felt252::from(value)),
-                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => Ok(Felt252::ZERO),
+                Err(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
+                    Ok(Felt252::ZERO)
+                }
                 Err(e) => Err(e),
             }
-                .unwrap();
+            .unwrap();
             self.ongoing_storage_changes.insert(key, value);
             Some(value)
         }

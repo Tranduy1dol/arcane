@@ -1,5 +1,5 @@
-use cairo_vm::Felt252;
 use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::Felt252;
 
 #[derive(Debug, Default)]
 pub struct KzgManager {
@@ -9,7 +9,11 @@ pub struct KzgManager {
 impl KzgManager {
     pub fn store_da_segment(&mut self, da_segment: Vec<Felt252>) -> Result<(), HintError> {
         if self.da_segment.is_some() {
-            return Err(HintError::AssertionFailed("DA segment is already initialized.".to_string().into_boxed_str()));
+            return Err(HintError::AssertionFailed(
+                "DA segment is already initialized."
+                    .to_string()
+                    .into_boxed_str(),
+            ));
         }
 
         self.da_segment = Some(da_segment);

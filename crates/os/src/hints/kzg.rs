@@ -1,27 +1,31 @@
-use std::collections::HashMap;
-use std::num::ParseIntError;
-use std::path::Path;
+use crate::execution::helper::ExecutionHelperWrapper;
+use crate::hints::vars;
+use crate::starknet::starknet_storage::PerContractStorage;
+use crate::utils::{execute_coroutine, get_constant};
 use c_kzg::{Blob, KzgCommitment, BYTES_PER_FIELD_ELEMENT};
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::{BigInt, ParseBigIntError};
 use num_traits::{Num, One, Zero};
-use crate::execution::helper::ExecutionHelperWrapper;
-use crate::hints::vars;
-use crate::starknet::starknet_storage::PerContractStorage;
-use crate::utils::{execute_coroutine, get_constant};
+use std::collections::HashMap;
+use std::num::ParseIntError;
+use std::path::Path;
 
 const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 const COMMITMENT_BYTES_LENGTH: usize = 48;
-const BLOB_SUBGROUP_GENERATOR: &str = "39033254847818212395286706435128746857159659164139250548781411570340225835782";
-const BLS_PRIME: &str = "52435875175126190479447740508185965837690552500527637822603658699938581184513";
+const BLOB_SUBGROUP_GENERATOR: &str =
+    "39033254847818212395286706435128746857159659164139250548781411570340225835782";
+const BLS_PRIME: &str =
+    "52435875175126190479447740508185965837690552500527637822603658699938581184513";
 const COMMITMENT_BITS: usize = 384;
 const COMMITMENT_BITS_MIDPOINT: usize = COMMITMENT_BITS / 2;
 
@@ -71,7 +75,13 @@ pub fn store_da_segment<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(store_da_segment_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking, constants))?
+    execute_coroutine(store_da_segment_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    ))?
 }
 
 pub async fn store_da_segment_async<PCS>(
@@ -84,21 +94,29 @@ pub async fn store_da_segment_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let state_updates_start = get_ptr_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
-    let da_size = get_integer_from_var_name(vars::ids::DA_SIZE, vm, ids_data, ap_tracking)?.to_biguint();
+    let state_updates_start =
+        get_ptr_from_var_name(vars::ids::STATE_UPDATES_START, vm, ids_data, ap_tracking)?;
+    let da_size =
+        get_integer_from_var_name(vars::ids::DA_SIZE, vm, ids_data, ap_tracking)?.to_biguint();
     let da_size: usize = da_size.try_into().map_err(|_| HintError::BigintToU32Fail)?;
 
-    let da_segment: Vec<Felt252> =
-        vm.get_integer_range(state_updates_start, da_size)?.into_iter().map(|s| *s).collect();
+    let da_segment: Vec<Felt252> = vm
+        .get_integer_range(state_updates_start, da_size)?
+        .into_iter()
+        .map(|s| *s)
+        .collect();
 
     let blob_length = get_constant(vars::ids::BLOB_LENGTH, constants)?.to_biguint();
-    let blob_length: usize = blob_length.try_into().map_err(|_| HintError::BigintToU32Fail)?;
+    let blob_length: usize = blob_length
+        .try_into()
+        .map_err(|_| HintError::BigintToU32Fail)?;
 
     let kzg_commitments: Vec<(Felt252, Felt252)> = da_segment
         .chunks(blob_length)
         .map(|chunk| {
             let coefficients: Vec<BigInt> = chunk.iter().map(|f| f.to_bigint()).collect();
-            let res: (BigInt, BigInt) = polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
+            let res: (BigInt, BigInt) =
+                polynomial_coefficients_to_kzg_commitment(coefficients).unwrap(); // TODO: unwrap
             (res.0.into(), res.1.into())
         })
         .collect();
@@ -112,23 +130,38 @@ where
     let evals_segment = vm.add_temporary_segment();
 
     insert_value_from_var_name(vars::ids::N_BLOBS, n_blobs, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::KZG_COMMITMENTS, kzg_commitments_segment, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::KZG_COMMITMENTS,
+        kzg_commitments_segment,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
     insert_value_from_var_name(vars::ids::EVALS, evals_segment, vm, ids_data, ap_tracking)?;
 
-    let kzg_commitments_flattened: Vec<MaybeRelocatable> =
-        kzg_commitments.into_iter().flat_map(|c| [c.0.into(), c.1.into()]).collect();
+    let kzg_commitments_flattened: Vec<MaybeRelocatable> = kzg_commitments
+        .into_iter()
+        .flat_map(|c| [c.0.into(), c.1.into()])
+        .collect();
     vm.write_arg(kzg_commitments_segment, &kzg_commitments_flattened)?;
 
     Ok(())
 }
 
-fn polynomial_coefficients_to_kzg_commitment(coefficients: Vec<BigInt>) -> Result<(BigInt, BigInt), FftError> {
+fn polynomial_coefficients_to_kzg_commitment(
+    coefficients: Vec<BigInt>,
+) -> Result<(BigInt, BigInt), FftError> {
     let blob = polynomial_coefficients_to_blob(coefficients)?;
     let commitment_bytes =
-        blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?).map_err(FftError::CKzgError)?;
-    assert_eq!(commitment_bytes.len(), COMMITMENT_BYTES_LENGTH, "Bad commitment bytes length.");
-    let kzg_bigint =
-        BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16).map_err(FftError::ParseBigIntError)?;
+        blob_to_kzg_commitment(&Blob::from_bytes(&blob).map_err(FftError::CKzgError)?)
+            .map_err(FftError::CKzgError)?;
+    assert_eq!(
+        commitment_bytes.len(),
+        COMMITMENT_BYTES_LENGTH,
+        "Bad commitment bytes length."
+    );
+    let kzg_bigint = BigInt::from_str_radix(&commitment_bytes.as_hex_string(), 16)
+        .map_err(FftError::ParseBigIntError)?;
     Ok(split_commitment(kzg_bigint))
 }
 
@@ -142,7 +175,8 @@ fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>,
     padded_coefficients.resize(FIELD_ELEMENTS_PER_BLOB, BigInt::zero());
 
     // Perform FFT on the coefficients
-    let generator = BigInt::from_str_radix(BLOB_SUBGROUP_GENERATOR, 10).map_err(FftError::ParseBigIntError)?;
+    let generator =
+        BigInt::from_str_radix(BLOB_SUBGROUP_GENERATOR, 10).map_err(FftError::ParseBigIntError)?;
     let prime = BigInt::from_str_radix(BLS_PRIME, 10).map_err(FftError::ParseBigIntError)?;
     let fft_result = fft(&padded_coefficients, &generator, &prime, true)?;
 
@@ -151,8 +185,13 @@ fn polynomial_coefficients_to_blob(coefficients: Vec<BigInt>) -> Result<Vec<u8>,
 }
 
 pub fn blob_to_kzg_commitment(blob: &Blob) -> Result<KzgCommitment, c_kzg::Error> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("kzg").join("trusted_setup.txt");
-    KzgCommitment::blob_to_kzg_commitment(blob, &c_kzg::KzgSettings::load_trusted_setup_file(&path)?)
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("kzg")
+        .join("trusted_setup.txt");
+    KzgCommitment::blob_to_kzg_commitment(
+        blob,
+        &c_kzg::KzgSettings::load_trusted_setup_file(&path)?,
+    )
 }
 
 fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
@@ -167,13 +206,21 @@ fn split_commitment(num: BigInt) -> (BigInt, BigInt) {
     (low, high)
 }
 
-fn fft(coeffs: &[BigInt], generator: &BigInt, prime: &BigInt, bit_reversed: bool) -> Result<Vec<BigInt>, FftError> {
+fn fft(
+    coeffs: &[BigInt],
+    generator: &BigInt,
+    prime: &BigInt,
+    bit_reversed: bool,
+) -> Result<Vec<BigInt>, FftError> {
     if coeffs.is_empty() {
         return Ok(vec![]);
     }
 
     let coeffs_len = coeffs.len();
-    assert!(coeffs_len.is_power_of_two(), "Length is not a power of two.");
+    assert!(
+        coeffs_len.is_power_of_two(),
+        "Length is not a power of two."
+    );
 
     let mut group = vec![BigInt::one()];
     for _ in 0..(coeffs_len - 1) {
@@ -213,13 +260,22 @@ fn inner_fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt>
         prime,
     );
     let f_odd = inner_fft(
-        &coeffs.iter().skip(1).step_by(2).cloned().collect::<Vec<_>>(),
+        &coeffs
+            .iter()
+            .skip(1)
+            .step_by(2)
+            .cloned()
+            .collect::<Vec<_>>(),
         &group.iter().step_by(2).cloned().collect::<Vec<_>>(),
         prime,
     );
 
-    let group_mul_f_odd: Vec<BigInt> =
-        group.iter().take(f_odd.len()).zip(f_odd.iter()).map(|(g, f)| (g * f) % prime).collect();
+    let group_mul_f_odd: Vec<BigInt> = group
+        .iter()
+        .take(f_odd.len())
+        .zip(f_odd.iter())
+        .map(|(g, f)| (g * f) % prime)
+        .collect();
 
     let mut result = Vec::with_capacity(coeffs.len());
     for i in 0..f_even.len() {
@@ -236,7 +292,9 @@ fn inner_fft(coeffs: &[BigInt], group: &[BigInt], prime: &BigInt) -> Vec<BigInt>
 
 fn serialize_blob(blob: &[BigInt]) -> Vec<u8> {
     assert_eq!(blob.len(), FIELD_ELEMENTS_PER_BLOB, "Bad blob size.");
-    blob.iter().flat_map(|x| to_bytes(x, BYTES_PER_FIELD_ELEMENT)).collect()
+    blob.iter()
+        .flat_map(|x| to_bytes(x, BYTES_PER_FIELD_ELEMENT))
+        .collect()
 }
 
 fn to_bytes(x: &BigInt, length: usize) -> Vec<u8> {

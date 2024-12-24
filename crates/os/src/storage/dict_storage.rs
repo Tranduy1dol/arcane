@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use futures::FutureExt;
 use crate::storage::error::StorageError;
 use crate::storage::storage::Storage;
+use futures::FutureExt;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DictStorage {
@@ -14,7 +14,10 @@ impl Storage for DictStorage {
         Ok(())
     }
 
-    fn get_value(&self, key: &[u8]) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
+    fn get_value(
+        &self,
+        key: &[u8],
+    ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send {
         let result = Ok(self.db.get(key).cloned());
         async move { result }.boxed()
     }

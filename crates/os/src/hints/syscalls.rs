@@ -1,19 +1,22 @@
-use std::collections::HashMap;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_ptr_from_var_name, insert_value_from_var_name};
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::serde::deserialize_program::ApTracking;
-use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::vm_core::VirtualMachine;
-use indoc::indoc;
 use crate::execution::deprecated_syscall_handler::DeprecatedOsSyscallHandlerWrapper;
 use crate::execution::syscall_handler::OsSyscallHandlerWrapper;
 use crate::hints::vars;
 use crate::starknet::starknet_storage::PerContractStorage;
 use crate::utils::execute_coroutine;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_ptr_from_var_name, insert_value_from_var_name,
+};
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
+use indoc::indoc;
+use std::collections::HashMap;
 
-pub const CALL_CONTRACT: &str = "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const CALL_CONTRACT: &str =
+    "syscall_handler.call_contract(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub async fn call_contract_async<PCS>(
     vm: &mut VirtualMachine,
@@ -24,7 +27,8 @@ pub async fn call_contract_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.call_contract(syscall_ptr, vm).await?;
@@ -42,10 +46,16 @@ pub fn call_contract<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(call_contract_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(call_contract_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
-pub const DELEGATE_CALL: &str = "syscall_handler.delegate_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const DELEGATE_CALL: &str =
+    "syscall_handler.delegate_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub async fn delegate_call_async<PCS>(
     vm: &mut VirtualMachine,
@@ -56,7 +66,8 @@ pub async fn delegate_call_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_write(syscall_ptr).await?;
@@ -74,7 +85,12 @@ pub fn delegate_call<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(delegate_call_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(delegate_call_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const DELEGATE_L1_HANDLER: &str =
@@ -90,7 +106,8 @@ pub fn delegate_l1_handler<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.delegate_l1_handler(syscall_ptr, vm))?
@@ -108,13 +125,15 @@ pub fn deploy<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.deploy(syscall_ptr, vm))?
 }
 
-pub const EMIT_EVENT: &str = "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const EMIT_EVENT: &str =
+    "syscall_handler.emit_event(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn emit_event<PCS>(
     _vm: &mut VirtualMachine,
@@ -126,13 +145,15 @@ pub fn emit_event<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     syscall_handler.emit_event();
 
     Ok(())
 }
 
-pub const GET_BLOCK_NUMBER: &str = "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const GET_BLOCK_NUMBER: &str =
+    "syscall_handler.get_block_number(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn get_block_number<PCS>(
     vm: &mut VirtualMachine,
@@ -144,7 +165,8 @@ pub fn get_block_number<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_block_number(syscall_ptr, vm))?
@@ -163,7 +185,8 @@ pub fn get_block_timestamp<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_block_timestamp(syscall_ptr, vm))?
@@ -181,7 +204,8 @@ pub async fn get_caller_address_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.get_caller_address(syscall_ptr, vm).await;
@@ -199,7 +223,12 @@ pub fn get_caller_address<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(get_caller_address_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(get_caller_address_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const GET_CONTRACT_ADDRESS: &str =
@@ -215,7 +244,8 @@ pub fn get_contract_address<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_contract_address(syscall_ptr, vm))?
@@ -234,13 +264,15 @@ pub fn get_sequencer_address<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_sequencer_address(syscall_ptr, vm))?
 }
 
-pub const GET_TX_INFO: &str = "syscall_handler.get_tx_info(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const GET_TX_INFO: &str =
+    "syscall_handler.get_tx_info(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn get_tx_info<PCS>(
     vm: &mut VirtualMachine,
@@ -252,13 +284,15 @@ pub fn get_tx_info<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_tx_info(syscall_ptr, vm))?
 }
 
-pub const GET_TX_SIGNATURE: &str = "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const GET_TX_SIGNATURE: &str =
+    "syscall_handler.get_tx_signature(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn get_tx_signature<PCS>(
     vm: &mut VirtualMachine,
@@ -270,13 +304,15 @@ pub fn get_tx_signature<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.get_tx_signature(syscall_ptr, vm))?
 }
 
-pub const LIBRARY: &str = "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const LIBRARY: &str =
+    "syscall_handler.library_call(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn library_call<PCS>(
     vm: &mut VirtualMachine,
@@ -288,7 +324,8 @@ pub fn library_call<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.library_call(syscall_ptr, vm))?
@@ -307,13 +344,15 @@ pub fn library_call_l1_handler<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     execute_coroutine(syscall_handler.library_call_l1_handler(syscall_ptr, vm))?
 }
 
-pub const REPLACE_CLASS: &str = "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const REPLACE_CLASS: &str =
+    "syscall_handler.replace_class(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub fn replace_class<PCS>(
     _vm: &mut VirtualMachine,
@@ -325,7 +364,8 @@ pub fn replace_class<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
 
     syscall_handler.replace_class();
 
@@ -345,14 +385,16 @@ pub fn send_message_to_l1<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
 
     syscall_handler.send_message_to_l1();
 
     Ok(())
 }
 
-pub const STORAGE_READ: &str = "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const STORAGE_READ: &str =
+    "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub async fn storage_read_async<PCS>(
     vm: &mut VirtualMachine,
@@ -363,7 +405,8 @@ pub async fn storage_read_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_read(syscall_ptr, vm).await?;
@@ -381,10 +424,16 @@ pub fn storage_read<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(storage_read_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(storage_read_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
-pub const STORAGE_WRITE: &str = "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
+pub const STORAGE_WRITE: &str =
+    "syscall_handler.storage_write(segments=segments, syscall_ptr=ids.syscall_ptr)";
 
 pub async fn storage_write_async<PCS>(
     vm: &mut VirtualMachine,
@@ -395,7 +444,8 @@ pub async fn storage_write_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let syscall_handler = exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler =
+        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     syscall_handler.storage_write(syscall_ptr).await?;
@@ -413,7 +463,12 @@ pub fn storage_write<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(storage_write_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(storage_write_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const SET_SYSCALL_PTR: &str = indoc! {r#"
@@ -437,9 +492,16 @@ where
     let syscall_ptr = vm.add_memory_segment();
 
     insert_value_from_var_name(vars::ids::OS_CONTEXT, os_context, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::SYSCALL_PTR, syscall_ptr, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::SYSCALL_PTR,
+        syscall_ptr,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
-    let syscall_handler: OsSyscallHandlerWrapper<PCS> = exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
+    let syscall_handler: OsSyscallHandlerWrapper<PCS> =
+        exec_scopes.get(vars::scopes::SYSCALL_HANDLER)?;
     execute_coroutine(syscall_handler.set_syscall_ptr(syscall_ptr))?;
 
     Ok(())
@@ -492,7 +554,14 @@ pub fn exit_call_contract_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("CALL_CONTRACT_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "CALL_CONTRACT_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 
 pub const EXIT_DELEGATE_CALL_SYSCALL: &str = "exit_syscall(selector=ids.DELEGATE_CALL_SELECTOR)";
@@ -503,9 +572,17 @@ pub fn exit_delegate_call_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("DELEGATE_CALL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "DELEGATE_CALL_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_DELEGATE_L1_HANDLER_SYSCALL: &str = "exit_syscall(selector=ids.DELEGATE_L1_HANDLER_SELECTOR)";
+pub const EXIT_DELEGATE_L1_HANDLER_SYSCALL: &str =
+    "exit_syscall(selector=ids.DELEGATE_L1_HANDLER_SELECTOR)";
 pub fn exit_delegate_l1_handler_syscall(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -513,7 +590,14 @@ pub fn exit_delegate_l1_handler_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("DELEGATE_L1_HANDLER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "DELEGATE_L1_HANDLER_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_DEPLOY_SYSCALL: &str = "exit_syscall(selector=ids.DEPLOY_SELECTOR)";
 pub fn exit_deploy_syscall(
@@ -523,7 +607,14 @@ pub fn exit_deploy_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("DEPLOY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "DEPLOY_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_EMIT_EVENT_SYSCALL: &str = "exit_syscall(selector=ids.EMIT_EVENT_SELECTOR)";
 
@@ -534,7 +625,14 @@ pub fn exit_emit_event_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("EMIT_EVENT_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "EMIT_EVENT_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_GET_BLOCK_HASH_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_HASH_SELECTOR)";
 
@@ -545,10 +643,18 @@ pub fn exit_get_block_hash_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_BLOCK_HASH_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_BLOCK_HASH_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 
-pub const EXIT_GET_BLOCK_NUMBER_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_NUMBER_SELECTOR)";
+pub const EXIT_GET_BLOCK_NUMBER_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_BLOCK_NUMBER_SELECTOR)";
 pub fn exit_get_block_number_syscall(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -556,10 +662,18 @@ pub fn exit_get_block_number_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_BLOCK_NUMBER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_BLOCK_NUMBER_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 
-pub const EXIT_GET_BLOCK_TIMESTAMP_SYSCALL: &str = "exit_syscall(selector=ids.GET_BLOCK_TIMESTAMP_SELECTOR)";
+pub const EXIT_GET_BLOCK_TIMESTAMP_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_BLOCK_TIMESTAMP_SELECTOR)";
 
 pub fn exit_get_block_timestamp_syscall(
     vm: &mut VirtualMachine,
@@ -568,9 +682,17 @@ pub fn exit_get_block_timestamp_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_BLOCK_TIMESTAMP_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_BLOCK_TIMESTAMP_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_GET_CALLER_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_CALLER_ADDRESS_SELECTOR)";
+pub const EXIT_GET_CALLER_ADDRESS_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_CALLER_ADDRESS_SELECTOR)";
 
 pub fn exit_get_caller_address_syscall(
     vm: &mut VirtualMachine,
@@ -579,9 +701,17 @@ pub fn exit_get_caller_address_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_CALLER_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_CALLER_ADDRESS_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_GET_CONTRACT_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_CONTRACT_ADDRESS_SELECTOR)";
+pub const EXIT_GET_CONTRACT_ADDRESS_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_CONTRACT_ADDRESS_SELECTOR)";
 
 pub fn exit_get_contract_address_syscall(
     vm: &mut VirtualMachine,
@@ -590,9 +720,17 @@ pub fn exit_get_contract_address_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_CONTRACT_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_CONTRACT_ADDRESS_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_GET_EXECUTION_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_EXECUTION_INFO_SELECTOR)";
+pub const EXIT_GET_EXECUTION_INFO_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_EXECUTION_INFO_SELECTOR)";
 
 pub fn exit_get_execution_info_syscall(
     vm: &mut VirtualMachine,
@@ -601,9 +739,17 @@ pub fn exit_get_execution_info_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_EXECUTION_INFO_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_EXECUTION_INFO_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_GET_SEQUENCER_ADDRESS_SYSCALL: &str = "exit_syscall(selector=ids.GET_SEQUENCER_ADDRESS_SELECTOR)";
+pub const EXIT_GET_SEQUENCER_ADDRESS_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_SEQUENCER_ADDRESS_SELECTOR)";
 
 pub fn exit_get_sequencer_address_syscall(
     vm: &mut VirtualMachine,
@@ -612,7 +758,14 @@ pub fn exit_get_sequencer_address_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_SEQUENCER_ADDRESS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_SEQUENCER_ADDRESS_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_GET_TX_INFO_SYSCALL: &str = "exit_syscall(selector=ids.GET_TX_INFO_SELECTOR)";
 
@@ -623,9 +776,17 @@ pub fn exit_get_tx_info_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_TX_INFO_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_TX_INFO_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_GET_TX_SIGNATURE_SYSCALL: &str = "exit_syscall(selector=ids.GET_TX_SIGNATURE_SELECTOR)";
+pub const EXIT_GET_TX_SIGNATURE_SYSCALL: &str =
+    "exit_syscall(selector=ids.GET_TX_SIGNATURE_SELECTOR)";
 
 pub fn exit_get_tx_signature_syscall(
     vm: &mut VirtualMachine,
@@ -634,7 +795,14 @@ pub fn exit_get_tx_signature_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("GET_TX_SIGNATURE_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "GET_TX_SIGNATURE_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_KECCAK_SYSCALL: &str = "exit_syscall(selector=ids.KECCAK_SELECTOR)";
 
@@ -645,9 +813,17 @@ pub fn exit_keccak_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("KECCAK_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "KECCAK_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_LIBRARY_CALL_L1_HANDLER_SYSCALL: &str = "exit_syscall(selector=ids.LIBRARY_CALL_L1_HANDLER_SELECTOR)";
+pub const EXIT_LIBRARY_CALL_L1_HANDLER_SYSCALL: &str =
+    "exit_syscall(selector=ids.LIBRARY_CALL_L1_HANDLER_SELECTOR)";
 
 pub fn exit_library_call_l1_handler_syscall(
     vm: &mut VirtualMachine,
@@ -656,7 +832,14 @@ pub fn exit_library_call_l1_handler_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("LIBRARY_CALL_L1_HANDLER_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "LIBRARY_CALL_L1_HANDLER_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_LIBRARY_CALL_SYSCALL: &str = "exit_syscall(selector=ids.LIBRARY_CALL_SELECTOR)";
 
@@ -667,7 +850,14 @@ pub fn exit_library_call_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("LIBRARY_CALL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "LIBRARY_CALL_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_REPLACE_CLASS_SYSCALL: &str = "exit_syscall(selector=ids.REPLACE_CLASS_SELECTOR)";
 
@@ -678,9 +868,17 @@ pub fn exit_replace_class_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("REPLACE_CLASS_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "REPLACE_CLASS_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_SHA256_PROCESS_BLOCK_SYSCALL: &str = "exit_syscall(selector=ids.SHA256_PROCESS_BLOCK_SELECTOR)";
+pub const EXIT_SHA256_PROCESS_BLOCK_SYSCALL: &str =
+    "exit_syscall(selector=ids.SHA256_PROCESS_BLOCK_SELECTOR)";
 
 pub fn exit_sha256_process_block_syscall(
     vm: &mut VirtualMachine,
@@ -689,7 +887,14 @@ pub fn exit_sha256_process_block_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SHA256_PROCESS_BLOCK_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SHA256_PROCESS_BLOCK_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256K1_ADD_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_ADD_SELECTOR)";
 
@@ -700,7 +905,14 @@ pub fn exit_secp256k1_add_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256K1_ADD_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256K1_ADD_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256K1_GET_POINT_FROM_X_SYSCALL: &str =
     "exit_syscall(selector=ids.SECP256K1_GET_POINT_FROM_X_SELECTOR)";
@@ -712,9 +924,17 @@ pub fn exit_secp256k1_get_point_from_x_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256K1_GET_POINT_FROM_X_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256K1_GET_POINT_FROM_X_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_SECP256K1_GET_XY_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_GET_XY_SELECTOR)";
+pub const EXIT_SECP256K1_GET_XY_SYSCALL: &str =
+    "exit_syscall(selector=ids.SECP256K1_GET_XY_SELECTOR)";
 
 pub fn exit_secp256k1_get_xy_syscall(
     vm: &mut VirtualMachine,
@@ -723,7 +943,14 @@ pub fn exit_secp256k1_get_xy_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256K1_GET_XY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256K1_GET_XY_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256K1_MUL_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_MUL_SELECTOR)";
 
@@ -734,7 +961,14 @@ pub fn exit_secp256k1_mul_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256K1_MUL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256K1_MUL_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256K1_NEW_SYSCALL: &str = "exit_syscall(selector=ids.SECP256K1_NEW_SELECTOR)";
 
@@ -745,7 +979,14 @@ pub fn exit_secp256k1_new_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256K1_NEW_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256K1_NEW_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256R1_ADD_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_ADD_SELECTOR)";
 
@@ -756,7 +997,14 @@ pub fn exit_secp256r1_add_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256R1_ADD_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256R1_ADD_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256R1_GET_POINT_FROM_X_SYSCALL: &str =
     "exit_syscall(selector=ids.SECP256R1_GET_POINT_FROM_X_SELECTOR)";
@@ -768,9 +1016,17 @@ pub fn exit_secp256r1_get_point_from_x_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256R1_GET_POINT_FROM_X_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256R1_GET_POINT_FROM_X_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_SECP256R1_GET_XY_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_GET_XY_SELECTOR)";
+pub const EXIT_SECP256R1_GET_XY_SYSCALL: &str =
+    "exit_syscall(selector=ids.SECP256R1_GET_XY_SELECTOR)";
 
 pub fn exit_secp256r1_get_xy_syscall(
     vm: &mut VirtualMachine,
@@ -779,7 +1035,14 @@ pub fn exit_secp256r1_get_xy_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256R1_GET_XY_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256R1_GET_XY_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256R1_MUL_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_MUL_SELECTOR)";
 
@@ -790,7 +1053,14 @@ pub fn exit_secp256r1_mul_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256R1_MUL_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256R1_MUL_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_SECP256R1_NEW_SYSCALL: &str = "exit_syscall(selector=ids.SECP256R1_NEW_SELECTOR)";
 
@@ -801,9 +1071,17 @@ pub fn exit_secp256r1_new_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SECP256R1_NEW_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SECP256R1_NEW_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
-pub const EXIT_SEND_MESSAGE_TO_L1_SYSCALL: &str = "exit_syscall(selector=ids.SEND_MESSAGE_TO_L1_SELECTOR)";
+pub const EXIT_SEND_MESSAGE_TO_L1_SYSCALL: &str =
+    "exit_syscall(selector=ids.SEND_MESSAGE_TO_L1_SELECTOR)";
 
 pub fn exit_send_message_to_l1_syscall(
     vm: &mut VirtualMachine,
@@ -812,7 +1090,14 @@ pub fn exit_send_message_to_l1_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("SEND_MESSAGE_TO_L1_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "SEND_MESSAGE_TO_L1_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_STORAGE_READ_SYSCALL: &str = "exit_syscall(selector=ids.STORAGE_READ_SELECTOR)";
 
@@ -823,7 +1108,14 @@ pub fn exit_storage_read_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("STORAGE_READ_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "STORAGE_READ_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }
 pub const EXIT_STORAGE_WRITE_SYSCALL: &str = "exit_syscall(selector=ids.STORAGE_WRITE_SELECTOR)";
 
@@ -834,5 +1126,12 @@ pub fn exit_storage_write_syscall(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    exit_syscall("STORAGE_WRITE_SELECTOR", vm, exec_scopes, ids_data, ap_tracking, constants)
+    exit_syscall(
+        "STORAGE_WRITE_SELECTOR",
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    )
 }

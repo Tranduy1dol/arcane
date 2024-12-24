@@ -1,16 +1,18 @@
-use std::collections::HashMap;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_relocatable_from_var_name, insert_value_from_var_name};
+use crate::cairo_types::bigint::BigInt3;
+use crate::hints::vars;
+use crate::utils::get_constant;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_relocatable_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigUint;
-use crate::cairo_types::bigint::BigInt3;
-use crate::hints::vars;
-use crate::utils::get_constant;
+use std::collections::HashMap;
 
 pub const COMPUTE_IDS_LOW: &str = indoc! {r#"
     ids.low = (ids.value.d0 + ids.value.d1 * ids.BASE) & ((1 << 128) - 1)"#
@@ -36,7 +38,13 @@ pub fn compute_ids_low(
     let mask = (BigUint::from(1u64) << 128) - BigUint::from(1u64);
     let low = (d0.as_ref() + d1.as_ref() * base).to_biguint() & mask;
 
-    insert_value_from_var_name(vars::ids::LOW, Felt252::from(low), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::LOW,
+        Felt252::from(low),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }

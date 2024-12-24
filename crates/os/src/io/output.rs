@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use cairo_vm::Felt252;
+use crate::error::ArcaneError;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::BuiltinRunner;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
-use crate::error::ArcaneError;
+use std::collections::HashMap;
 
 const PREVIOUS_MERKLE_UPDATE_OFFSET: usize = 0;
 const NEW_MERKLE_UPDATE_OFFSET: usize = 1;
@@ -56,7 +56,9 @@ impl StarknetOsOutput {
 
 fn get_output_info(vm: &VirtualMachine) -> Result<(usize, usize), ArcaneError> {
     let n_builtins = vm.get_builtin_runners().len();
-    let builtin_end_ptrs = vm.get_return_values(n_builtins).map_err(|e| ArcaneError::CatchAll(e.to_string()))?;
+    let builtin_end_ptrs = vm
+        .get_return_values(n_builtins)
+        .map_err(|e| ArcaneError::CatchAll(e.to_string()))?;
     let output_base = vm
         .get_builtin_runners()
         .iter()
@@ -66,7 +68,9 @@ fn get_output_info(vm: &VirtualMachine) -> Result<(usize, usize), ArcaneError> {
 
     let output_size = match builtin_end_ptrs[0] {
         MaybeRelocatable::Int(_) => {
-            return Err(ArcaneError::CatchAll("expected a relocatable as output builtin end pointer".to_string()));
+            return Err(ArcaneError::CatchAll(
+                "expected a relocatable as output builtin end pointer".to_string(),
+            ));
         }
         MaybeRelocatable::RelocatableValue(address) => {
             if address.segment_index as usize != output_base {
@@ -81,7 +85,11 @@ fn get_output_info(vm: &VirtualMachine) -> Result<(usize, usize), ArcaneError> {
     Ok((output_base, output_size))
 }
 
-fn get_raw_output(vm: &VirtualMachine, output_base: usize, output_size: usize) -> Result<Vec<Felt252>, ArcaneError> {
+fn get_raw_output(
+    vm: &VirtualMachine,
+    output_base: usize,
+    output_size: usize,
+) -> Result<Vec<Felt252>, ArcaneError> {
     // Get output and check that everything is an integer.
     let raw_output = vm.get_range((output_base as isize, 0).into(), output_size);
     let raw_output: Result<Vec<Felt252>, _> = raw_output
@@ -90,7 +98,9 @@ fn get_raw_output(vm: &VirtualMachine, output_base: usize, output_size: usize) -
             if let MaybeRelocatable::Int(val) = x.clone().unwrap().into_owned() {
                 Ok(val)
             } else {
-                Err(ArcaneError::CatchAll("Output should be all integers".to_string()))
+                Err(ArcaneError::CatchAll(
+                    "Output should be all integers".to_string(),
+                ))
             }
         })
         .collect();
@@ -201,8 +211,9 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
     output_iter: &mut I,
     full_output: Felt252,
 ) -> Result<ContractChanges, ArcaneError> {
-    let bound =
-        Felt252::from(1u128 << 64).try_into().expect("2**64 should be considered non-zero. Did you change the value?");
+    let bound = Felt252::from(1u128 << 64)
+        .try_into()
+        .expect("2**64 should be considered non-zero. Did you change the value?");
 
     let addr = next_or_fail(output_iter, "contract change addr")?;
 
@@ -213,10 +224,16 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
     #[allow(clippy::collapsible_else_if)] // Mirror the Cairo code as much as possible
     let new_state_class_hash = if !full_output.is_zero() {
         next_or_fail(output_iter, "contract change prev_state.class_hash")?;
-        Some(next_or_fail(output_iter, "contract change new_state.class_hash")?)
+        Some(next_or_fail(
+            output_iter,
+            "contract change new_state.class_hash",
+        )?)
     } else {
         if !was_class_updated.is_zero() {
-            Some(next_or_fail(output_iter, "contract change new_state.class_hash")?)
+            Some(next_or_fail(
+                output_iter,
+                "contract change new_state.class_hash",
+            )?)
         } else {
             None
         }
@@ -227,7 +244,12 @@ fn deserialize_contract_state_inner<I: Iterator<Item = Felt252>>(
         .expect("n_updates should be 64-bit by definition. Did you modify the parsing above?");
     let storage_changes = deserialize_da_changes(output_iter, n_actual_updates, full_output)?;
 
-    Ok(ContractChanges { addr, nonce: new_state_nonce, class_hash: new_state_class_hash, storage_changes })
+    Ok(ContractChanges {
+        addr,
+        nonce: new_state_nonce,
+        class_hash: new_state_class_hash,
+        storage_changes,
+    })
 }
 
 fn deserialize_messages<I>(output_iter: &mut I) -> Result<(Vec<Felt252>, Vec<Felt252>), ArcaneError>
@@ -268,14 +290,26 @@ fn deserialize_da_changes<I: Iterator<Item = Felt252>>(
     Ok(storage_changes)
 }
 
-fn next_as_usize<I: Iterator<Item = Felt252>>(output_iter: &mut I, item_name: &str) -> Result<usize, ArcaneError> {
+fn next_as_usize<I: Iterator<Item = Felt252>>(
+    output_iter: &mut I,
+    item_name: &str,
+) -> Result<usize, ArcaneError> {
     output_iter
         .next()
-        .ok_or(ArcaneError::CatchAll(format!("Could not read {item_name} segment size")))?
+        .ok_or(ArcaneError::CatchAll(format!(
+            "Could not read {item_name} segment size"
+        )))?
         .to_usize()
-        .ok_or(ArcaneError::CatchAll(format!("{item_name} segment size is too large")))
+        .ok_or(ArcaneError::CatchAll(format!(
+            "{item_name} segment size is too large"
+        )))
 }
 
-fn next_or_fail<T, I: Iterator<Item = T>>(output_iter: &mut I, item_name: &str) -> Result<T, ArcaneError> {
-    output_iter.next().ok_or(ArcaneError::CatchAll(format!("Could not read {item_name} field")))
+fn next_or_fail<T, I: Iterator<Item = T>>(
+    output_iter: &mut I,
+    item_name: &str,
+) -> Result<T, ArcaneError> {
+    output_iter.next().ok_or(ArcaneError::CatchAll(format!(
+        "Could not read {item_name} field"
+    )))
 }

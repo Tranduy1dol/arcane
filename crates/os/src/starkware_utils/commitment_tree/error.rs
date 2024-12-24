@@ -1,6 +1,6 @@
-use cairo_vm::vm::errors::hint_errors::HintError;
 use crate::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
 use crate::storage::error::StorageError;
+use cairo_vm::vm::errors::hint_errors::HintError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum CombineError {

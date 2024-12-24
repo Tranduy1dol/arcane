@@ -1,4 +1,4 @@
-use std::num::NonZeroU128;
+use crate::utils::{felt_to_u128, FeltConversionError};
 use blockifier::blockifier::block::{BlockInfo, GasPrices};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
@@ -8,14 +8,16 @@ use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::contract_address;
 use starknet_api::core::ChainId;
 use starknet_types_core::felt::Felt;
-use crate::utils::{felt_to_u128, FeltConversionError};
+use std::num::NonZeroU128;
 
 fn felt_to_gas_price(price: &Felt) -> Result<NonZeroU128, FeltConversionError> {
     if *price == Felt::ZERO {
         return Ok(NonZeroU128::MIN);
     }
     let gas_price = felt_to_u128(price)?;
-    NonZeroU128::new(gas_price).ok_or(FeltConversionError::CustomError("Gas price cannot be zero".to_string()))
+    NonZeroU128::new(gas_price).ok_or(FeltConversionError::CustomError(
+        "Gas price cannot be zero".to_string(),
+    ))
 }
 
 pub fn build_block_context(
@@ -57,5 +59,10 @@ pub fn build_block_context(
     let versioned_constants = VersionedConstants::get(StarknetVersion::V0_13_1);
     let bouncer_config = BouncerConfig::max();
 
-    Ok(BlockContext::new(block_info, chain_info, versioned_constants.clone(), bouncer_config))
+    Ok(BlockContext::new(
+        block_info,
+        chain_info,
+        versioned_constants.clone(),
+        bouncer_config,
+    ))
 }

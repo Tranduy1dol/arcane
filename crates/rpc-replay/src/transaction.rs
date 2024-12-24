@@ -8,7 +8,12 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::errors::TransactionExecutionError;
 use rpc_client::client::RpcClient;
-use starknet::core::types::{BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3, InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction, ResourceBoundsMapping, Transaction, TransactionTrace, TransactionTraceWithHash};
+use starknet::core::types::{
+    BlockId, DeclareTransaction, DeclareTransactionV1, DeclareTransactionV2, DeclareTransactionV3,
+    DeployAccountTransaction, DeployAccountTransactionV1, DeployAccountTransactionV3,
+    InvokeTransaction, InvokeTransactionV1, InvokeTransactionV3, L1HandlerTransaction,
+    ResourceBoundsMapping, Transaction, TransactionTrace, TransactionTraceWithHash,
+};
 use starknet::providers::{Provider, ProviderError};
 use starknet_api::core::{calculate_contract_address, ContractAddress, PatriciaKey};
 use starknet_api::transaction::{Fee, TransactionHash};
@@ -66,15 +71,25 @@ pub async fn starknet_rs_to_blockifier(
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let blockifier_tx = match sn_core_tx {
         Transaction::Invoke(tx) => match tx {
-            InvokeTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0"),
+            InvokeTransaction::V0(_) => {
+                unimplemented!("starknet_rs_to_blockifier with InvokeTransaction::V0")
+            }
             InvokeTransaction::V1(tx) => invoke_v1_to_blockifier(tx)?,
             InvokeTransaction::V3(tx) => invoke_v3_to_blockifier(tx)?,
         },
         Transaction::Declare(tx) => match tx {
-            DeclareTransaction::V0(_) => unimplemented!("starknet_rs_to_blockifier with DeclareTransaction::V0"),
-            DeclareTransaction::V1(tx) => declare_v1_to_blockifier(tx, client, block_number).await?,
-            DeclareTransaction::V2(tx) => declare_v2_to_blockifier(tx, client, block_number).await?,
-            DeclareTransaction::V3(tx) => declare_v3_to_blockifier(tx, client, block_number).await?,
+            DeclareTransaction::V0(_) => {
+                unimplemented!("starknet_rs_to_blockifier with DeclareTransaction::V0")
+            }
+            DeclareTransaction::V1(tx) => {
+                declare_v1_to_blockifier(tx, client, block_number).await?
+            }
+            DeclareTransaction::V2(tx) => {
+                declare_v2_to_blockifier(tx, client, block_number).await?
+            }
+            DeclareTransaction::V3(tx) => {
+                declare_v3_to_blockifier(tx, client, block_number).await?
+            }
         },
         Transaction::L1Handler(tx) => l1_handler_to_blockifier(tx, trace, gas_prices)?,
         Transaction::DeployAccount(tx) => match tx {
@@ -96,8 +111,10 @@ async fn create_class_info(
     block_number: u64,
 ) -> Result<ClassInfo, ToBlockifierError> {
     // TODO: improve this to avoid retrieving this twice. Already done in lib.rs from prove-block
-    let starknet_contract_class: starknet::core::types::ContractClass =
-        client.starknet_rpc().get_class(BlockId::Number(block_number), class_hash).await?;
+    let starknet_contract_class: starknet::core::types::ContractClass = client
+        .starknet_rpc()
+        .get_class(BlockId::Number(block_number), class_hash)
+        .await?;
 
     let (blockifier_contract_class, program_length, abi_length) = match starknet_contract_class {
         starknet::core::types::ContractClass::Sierra(sierra) => {
@@ -107,7 +124,11 @@ async fn create_class_info(
                 generic_sierra.compile()?.to_blockifier_contract_class()?,
             );
 
-            (contract_class, flattened_sierra.sierra_program.len(), flattened_sierra.abi.len())
+            (
+                contract_class,
+                flattened_sierra.sierra_program.len(),
+                flattened_sierra.abi.len(),
+            )
         }
 
         starknet::core::types::ContractClass::Legacy(legacy) => {
@@ -120,15 +141,23 @@ async fn create_class_info(
         }
     };
 
-    Ok(ClassInfo::new(&blockifier_contract_class, program_length, abi_length)?)
+    Ok(ClassInfo::new(
+        &blockifier_contract_class,
+        program_length,
+        abi_length,
+    )?)
 }
 
 fn da_mode_core_to_api(
     da_mode: starknet::core::types::DataAvailabilityMode,
 ) -> starknet_api::data_availability::DataAvailabilityMode {
     match da_mode {
-        starknet::core::types::DataAvailabilityMode::L1 => starknet_api::data_availability::DataAvailabilityMode::L1,
-        starknet::core::types::DataAvailabilityMode::L2 => starknet_api::data_availability::DataAvailabilityMode::L2,
+        starknet::core::types::DataAvailabilityMode::L1 => {
+            starknet_api::data_availability::DataAvailabilityMode::L1
+        }
+        starknet::core::types::DataAvailabilityMode::L2 => {
+            starknet_api::data_availability::DataAvailabilityMode::L2
+        }
     }
 }
 
@@ -136,41 +165,59 @@ fn invoke_v1_to_blockifier(
     tx: &InvokeTransactionV1,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
-    let api_tx = starknet_api::transaction::InvokeTransaction::V1(starknet_api::transaction::InvokeTransactionV1 {
-        max_fee: Fee(felt_to_u128(&tx.max_fee)?),
-        signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
-        nonce: starknet_api::core::Nonce(tx.nonce),
-        sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
-        calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
-    });
+    let api_tx = starknet_api::transaction::InvokeTransaction::V1(
+        starknet_api::transaction::InvokeTransactionV1 {
+            max_fee: Fee(felt_to_u128(&tx.max_fee)?),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
+            calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
+        },
+    );
 
-    let invoke = blockifier::transaction::transactions::InvokeTransaction { tx: api_tx, tx_hash, only_query: false };
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Invoke(
-        invoke,
-    )))
+    let invoke = blockifier::transaction::transactions::InvokeTransaction {
+        tx: api_tx,
+        tx_hash,
+        only_query: false,
+    };
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::Invoke(invoke),
+        ),
+    )
 }
 
 fn invoke_v3_to_blockifier(
     tx: &InvokeTransactionV3,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
-    let api_tx = starknet_api::transaction::InvokeTransaction::V3(starknet_api::transaction::InvokeTransactionV3 {
-        resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
-        tip: starknet_api::transaction::Tip(tx.tip),
-        signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
-        nonce: starknet_api::core::Nonce(tx.nonce),
-        sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
-        calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
-        nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
-        fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-        paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
-        account_deployment_data: starknet_api::transaction::AccountDeploymentData(tx.account_deployment_data.to_vec()),
-    });
+    let api_tx = starknet_api::transaction::InvokeTransaction::V3(
+        starknet_api::transaction::InvokeTransactionV3 {
+            resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+            tip: starknet_api::transaction::Tip(tx.tip),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.to_vec()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
+            calldata: starknet_api::transaction::Calldata(Arc::new(tx.calldata.to_vec())),
+            nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+            fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.to_vec()),
+            account_deployment_data: starknet_api::transaction::AccountDeploymentData(
+                tx.account_deployment_data.to_vec(),
+            ),
+        },
+    );
 
-    let invoke = blockifier::transaction::transactions::InvokeTransaction { tx: api_tx, tx_hash, only_query: false };
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Invoke(
-        invoke,
-    )))
+    let invoke = blockifier::transaction::transactions::InvokeTransaction {
+        tx: api_tx,
+        tx_hash,
+        only_query: false,
+    };
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::Invoke(invoke),
+        ),
+    )
 }
 
 async fn declare_v1_to_blockifier(
@@ -179,19 +226,25 @@ async fn declare_v1_to_blockifier(
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
-    let api_tx = starknet_api::transaction::DeclareTransaction::V1(starknet_api::transaction::DeclareTransactionV0V1 {
-        max_fee: Fee(felt_to_u128(&tx.max_fee)?),
-        signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
-        nonce: starknet_api::core::Nonce(tx.nonce),
-        class_hash: starknet_api::core::ClassHash(tx.class_hash),
-        sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
-    });
+    let api_tx = starknet_api::transaction::DeclareTransaction::V1(
+        starknet_api::transaction::DeclareTransactionV0V1 {
+            max_fee: Fee(felt_to_u128(&tx.max_fee)?),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+            sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
+        },
+    );
     let class_info = create_class_info(tx.class_hash, client, block_number).await?;
-    let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
+    let declare = blockifier::transaction::transactions::DeclareTransaction::new(
+        api_tx, tx_hash, class_info,
+    )?;
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
-        declare,
-    )))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::Declare(declare),
+        ),
+    )
 }
 
 async fn declare_v2_to_blockifier(
@@ -200,20 +253,26 @@ async fn declare_v2_to_blockifier(
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
-    let api_tx = starknet_api::transaction::DeclareTransaction::V2(starknet_api::transaction::DeclareTransactionV2 {
-        max_fee: Fee(felt_to_u128(&tx.max_fee)?),
-        signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
-        nonce: starknet_api::core::Nonce(tx.nonce),
-        class_hash: starknet_api::core::ClassHash(tx.class_hash),
-        compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
-        sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
-    });
+    let api_tx = starknet_api::transaction::DeclareTransaction::V2(
+        starknet_api::transaction::DeclareTransactionV2 {
+            max_fee: Fee(felt_to_u128(&tx.max_fee)?),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+            compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
+            sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
+        },
+    );
     let class_info = create_class_info(tx.class_hash, client, block_number).await?;
-    let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
+    let declare = blockifier::transaction::transactions::DeclareTransaction::new(
+        api_tx, tx_hash, class_info,
+    )?;
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
-        declare,
-    )))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::Declare(declare),
+        ),
+    )
 }
 
 async fn declare_v3_to_blockifier(
@@ -222,25 +281,33 @@ async fn declare_v3_to_blockifier(
     block_number: u64,
 ) -> Result<blockifier::transaction::transaction_execution::Transaction, ToBlockifierError> {
     let tx_hash = TransactionHash(tx.transaction_hash);
-    let api_tx = starknet_api::transaction::DeclareTransaction::V3(starknet_api::transaction::DeclareTransactionV3 {
-        resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
-        tip: starknet_api::transaction::Tip(tx.tip),
-        signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
-        nonce: starknet_api::core::Nonce(tx.nonce),
-        class_hash: starknet_api::core::ClassHash(tx.class_hash),
-        compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
-        sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
-        nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
-        fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
-        paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
-        account_deployment_data: starknet_api::transaction::AccountDeploymentData(tx.account_deployment_data.clone()),
-    });
+    let api_tx = starknet_api::transaction::DeclareTransaction::V3(
+        starknet_api::transaction::DeclareTransactionV3 {
+            resource_bounds: resource_bounds_core_to_api(&tx.resource_bounds),
+            tip: starknet_api::transaction::Tip(tx.tip),
+            signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
+            nonce: starknet_api::core::Nonce(tx.nonce),
+            class_hash: starknet_api::core::ClassHash(tx.class_hash),
+            compiled_class_hash: starknet_api::core::CompiledClassHash(tx.compiled_class_hash),
+            sender_address: ContractAddress(PatriciaKey::try_from(tx.sender_address)?),
+            nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
+            fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
+            paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
+            account_deployment_data: starknet_api::transaction::AccountDeploymentData(
+                tx.account_deployment_data.clone(),
+            ),
+        },
+    );
     let class_info = create_class_info(tx.class_hash, client, block_number).await?;
-    let declare = blockifier::transaction::transactions::DeclareTransaction::new(api_tx, tx_hash, class_info)?;
+    let declare = blockifier::transaction::transactions::DeclareTransaction::new(
+        api_tx, tx_hash, class_info,
+    )?;
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(AccountTransaction::Declare(
-        declare,
-    )))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::Declare(declare),
+        ),
+    )
 }
 
 fn l1_handler_to_blockifier(
@@ -259,8 +326,16 @@ fn l1_handler_to_blockifier(
 
     let (l1_gas, l1_data_gas) = match &trace.trace_root {
         TransactionTrace::L1Handler(l1_handler) => (
-            l1_handler.execution_resources.data_resources.data_availability.l1_gas,
-            l1_handler.execution_resources.data_resources.data_availability.l1_data_gas,
+            l1_handler
+                .execution_resources
+                .data_resources
+                .data_availability
+                .l1_gas,
+            l1_handler
+                .execution_resources
+                .data_resources
+                .data_availability
+                .l1_data_gas,
         ),
         _ => unreachable!("Expected L1Handler type for TransactionTrace"),
     };
@@ -282,10 +357,17 @@ fn l1_handler_to_blockifier(
     };
 
     let paid_fee_on_l1 = Fee(fee);
-    let l1_handler =
-        blockifier::transaction::transactions::L1HandlerTransaction { tx: api_tx, tx_hash, paid_fee_on_l1 };
+    let l1_handler = blockifier::transaction::transactions::L1HandlerTransaction {
+        tx: api_tx,
+        tx_hash,
+        paid_fee_on_l1,
+    };
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(l1_handler))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::L1HandlerTransaction(
+            l1_handler,
+        ),
+    )
 }
 
 fn deploy_account_v1_to_blockifier(
@@ -326,9 +408,11 @@ fn deploy_account_v1_to_blockifier(
         contract_address,
     };
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
-        AccountTransaction::DeployAccount(deploy),
-    ))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::DeployAccount(deploy),
+        ),
+    )
 }
 
 fn deploy_account_v3_to_blockifier(
@@ -342,8 +426,12 @@ fn deploy_account_v3_to_blockifier(
             signature: starknet_api::transaction::TransactionSignature(tx.signature.clone()),
             nonce: starknet_api::core::Nonce(tx.nonce),
             class_hash: starknet_api::core::ClassHash(tx.class_hash),
-            contract_address_salt: starknet_api::transaction::ContractAddressSalt(tx.contract_address_salt),
-            constructor_calldata: starknet_api::transaction::Calldata(Arc::new(tx.constructor_calldata.clone())),
+            contract_address_salt: starknet_api::transaction::ContractAddressSalt(
+                tx.contract_address_salt,
+            ),
+            constructor_calldata: starknet_api::transaction::Calldata(Arc::new(
+                tx.constructor_calldata.clone(),
+            )),
             nonce_data_availability_mode: da_mode_core_to_api(tx.nonce_data_availability_mode),
             fee_data_availability_mode: da_mode_core_to_api(tx.fee_data_availability_mode),
             paymaster_data: starknet_api::transaction::PaymasterData(tx.paymaster_data.clone()),
@@ -357,9 +445,11 @@ fn deploy_account_v3_to_blockifier(
         only_query: false,
     };
 
-    Ok(blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
-        AccountTransaction::DeployAccount(deploy_account),
-    ))
+    Ok(
+        blockifier::transaction::transaction_execution::Transaction::AccountTransaction(
+            AccountTransaction::DeployAccount(deploy_account),
+        ),
+    )
 }
 
 /// Calculates a contract address for deploy transaction

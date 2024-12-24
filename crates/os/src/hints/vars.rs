@@ -27,7 +27,8 @@ pub mod scopes {
     pub const PATRICIA_TREE_MODE: &str = "patricia_tree_mode";
     pub const PREIMAGE: &str = "preimage";
     pub const RIGHT_CHILD: &str = "right_child";
-    pub const SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES: &str = "__serialize_data_availability_create_pages__";
+    pub const SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES: &str =
+        "__serialize_data_availability_create_pages__";
     pub const SYSCALL_HANDLER: &str = "syscall_handler";
     pub const TRANSACTIONS: &str = "transactions";
     pub const TX: &str = "tx";
@@ -39,7 +40,8 @@ pub mod ids {
     pub const ALL_ENCODINGS: &str = "all_encodings";
     pub const ARRAY_PTR: &str = "array_ptr";
     pub const BIT: &str = "bit";
-    pub const BLOB_LENGTH: &str = "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
+    pub const BLOB_LENGTH: &str =
+        "starkware.starknet.core.os.data_availability.commitment.BLOB_LENGTH";
     pub const BUILTIN_PARAMS: &str = "builtin_params";
     pub const BUILTIN_PTRS: &str = "builtin_ptrs";
     pub const CALL_RESPONSE: &str = "call_response";
@@ -160,8 +162,10 @@ pub mod ids {
 
 pub mod constants {
     pub const BASE: &str = "starkware.starknet.core.os.data_availability.bls_field.BASE";
-    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str = "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
+    pub const BLOCK_HASH_CONTRACT_ADDRESS: &str =
+        "starkware.starknet.core.os.constants.BLOCK_HASH_CONTRACT_ADDRESS";
     pub const MERKLE_HEIGHT: &str = "starkware.starknet.core.os.state.commitment.MERKLE_HEIGHT";
-    pub const STORED_BLOCK_HASH_BUFFER: &str = "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
+    pub const STORED_BLOCK_HASH_BUFFER: &str =
+        "starkware.starknet.core.os.constants.STORED_BLOCK_HASH_BUFFER";
     pub const VALIDATED: &str = "starkware.starknet.core.os.constants.VALIDATED";
 }

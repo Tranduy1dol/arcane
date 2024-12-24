@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use starknet_api::transaction::ResourceBoundsMapping;
 
+pub mod classes;
 pub mod input;
 pub mod output;
-pub mod classes;
 
 #[serde_as]
 #[derive(Deserialize, Clone, Debug, Serialize, Default, PartialEq)]

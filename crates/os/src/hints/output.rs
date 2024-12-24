@@ -1,16 +1,18 @@
-use std::cmp::min;
-use std::collections::HashMap;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
+use crate::hints::vars;
+use crate::utils::get_variable_from_root_exec_scope;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_integer::div_ceil;
-use crate::hints::vars;
-use crate::utils::get_variable_from_root_exec_scope;
+use std::cmp::min;
+use std::collections::HashMap;
 
 const MAX_PAGE_SIZE: usize = 3800;
 
@@ -54,8 +56,10 @@ pub fn set_tree_structure(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let serialize_data_availability_create_pages: bool =
-        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES)?;
+    let serialize_data_availability_create_pages: bool = get_variable_from_root_exec_scope(
+        exec_scopes,
+        vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES,
+    )?;
 
     if !serialize_data_availability_create_pages {
         return Ok(());
@@ -114,18 +118,29 @@ pub fn set_state_updates_start(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let use_kzg_da_felt = get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
+    let use_kzg_da_felt =
+        get_integer_from_var_name(vars::ids::USE_KZG_DA, vm, ids_data, ap_tracking)?;
 
     let use_kzg_da = if use_kzg_da_felt == Felt252::ONE {
         Ok(true)
     } else if use_kzg_da_felt == Felt252::ZERO {
         Ok(false)
     } else {
-        Err(HintError::CustomHint("ids.use_kzg_da is not a boolean".to_string().into_boxed_str()))
+        Err(HintError::CustomHint(
+            "ids.use_kzg_da is not a boolean"
+                .to_string()
+                .into_boxed_str(),
+        ))
     }?;
 
     if use_kzg_da {
-        insert_value_from_var_name(vars::ids::STATE_UPDATES_START, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+        insert_value_from_var_name(
+            vars::ids::STATE_UPDATES_START,
+            vm.add_memory_segment(),
+            vm,
+            ids_data,
+            ap_tracking,
+        )?;
     } else {
         // Assign a temporary segment, to be relocated into the output segment.
         insert_value_from_var_name(

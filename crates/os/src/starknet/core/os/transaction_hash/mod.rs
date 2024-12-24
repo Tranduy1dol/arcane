@@ -13,7 +13,10 @@ pub fn create_resource_bounds_list(resource_bounds: &ResourceBoundsMapping) -> V
     let resource_types = [(Resource::L1Gas, l1_gas), (Resource::L2Gas, l2_gas)];
 
     for (resource, name_as_felt) in resource_types {
-        let bounds = resource_bounds.0.get(&resource).expect("Expect to find well-known resource types");
+        let bounds = resource_bounds
+            .0
+            .get(&resource)
+            .expect("Expect to find well-known resource types");
         resource_bounds_vec.push(name_as_felt);
         resource_bounds_vec.push(bounds.max_amount.into());
         resource_bounds_vec.push(bounds.max_price_per_unit.into());

@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use arcane_os_type::deprecated_compiled_class::GenericDeprecatedCompiledClass;
-use arcane_os_type::casm_contract_class::GenericCasmContractClass;
-use cairo_vm::Felt252;
-use serde::{Deserialize, Serialize};
-use starknet_types_core::felt::Felt;
 use crate::config::StarknetGeneralConfig;
 use crate::io::InternalTransaction;
 use crate::starknet::business_logic::fact_state::contract_class_object::ContractState;
 use crate::starknet::starknet_storage::CommitmentInfo;
+use arcane_os_type::casm_contract_class::GenericCasmContractClass;
+use arcane_os_type::deprecated_compiled_class::GenericDeprecatedCompiledClass;
+use cairo_vm::Felt252;
+use serde::{Deserialize, Serialize};
+use starknet_types_core::felt::Felt;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct StarknetOsInput {

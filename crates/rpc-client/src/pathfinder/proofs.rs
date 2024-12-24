@@ -1,12 +1,14 @@
-use serde::Deserialize;
-use starknet::core::types::Felt;
 use arcane_os::config::DEFAULT_STORAGE_TREE_HEIGHT;
 use arcane_os::crypto::pedersen::PedersenHash;
 use arcane_os::crypto::poseidon::PoseidonHash;
 use arcane_os::starkware_utils::commitment_tree::base_types::{Height, Length, NodePath};
-use arcane_os::starkware_utils::commitment_tree::patricia_tree::nodes::{BinaryNodeFact, EdgeNodeFact};
+use arcane_os::starkware_utils::commitment_tree::patricia_tree::nodes::{
+    BinaryNodeFact, EdgeNodeFact,
+};
 use arcane_os::storage::dict_storage::DictStorage;
 use arcane_os::storage::storage::{Fact, HashFunctionType};
+use serde::Deserialize;
+use starknet::core::types::Felt;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub enum TrieNode {
@@ -28,8 +30,12 @@ impl TrieNode {
                 Felt::from(<BinaryNodeFact as Fact<DictStorage, H>>::hash(&fact))
             }
             TrieNode::Edge { child, path } => {
-                let fact = EdgeNodeFact::new((*child).into(), NodePath(path.value.to_biguint()), Length(path.len))
-                    .expect("storage proof endpoint gave us an invalid edge node");
+                let fact = EdgeNodeFact::new(
+                    (*child).into(),
+                    NodePath(path.value.to_biguint()),
+                    Length(path.len),
+                )
+                .expect("storage proof endpoint gave us an invalid edge node");
                 // TODO: the hash function should probably be split from the Fact trait.
                 //       we use a placeholder for the Storage trait in the meantime.
                 Felt::from(<EdgeNodeFact as Fact<DictStorage, H>>::hash(&fact))
@@ -49,7 +55,11 @@ pub struct ContractData {
 #[derive(thiserror::Error, Debug)]
 pub enum ProofVerificationError<'a> {
     #[error("Non-inclusion proof for key {}. Height {}.", key.to_hex_string(), height.0)]
-    NonExistenceProof { key: Felt, height: Height, proof: &'a [TrieNode] },
+    NonExistenceProof {
+        key: Felt,
+        height: Height,
+        proof: &'a [TrieNode],
+    },
 
     #[error("Proof verification failed, node_hash {node_hash:x} != parent_hash {parent_hash:x}")]
     InvalidChildNodeHash { node_hash: Felt, parent_hash: Felt },
@@ -64,12 +74,18 @@ impl ContractData {
         let mut errors = vec![];
 
         for (index, storage_key) in storage_keys.iter().enumerate() {
-            if let Err(e) = verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index]) {
+            if let Err(e) =
+                verify_proof::<PedersenHash>(*storage_key, self.root, &self.storage_proofs[index])
+            {
                 errors.push(e);
             }
         }
 
-        if errors.is_empty() { Ok(()) } else { Err(errors) }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 }
 
@@ -120,7 +136,10 @@ pub fn verify_proof<H: HashFunctionType>(
     for node in proof.iter() {
         let node_hash = node.hash::<H>();
         if node_hash != parent_hash {
-            return Err(ProofVerificationError::InvalidChildNodeHash { node_hash, parent_hash });
+            return Err(ProofVerificationError::InvalidChildNodeHash {
+                node_hash,
+                parent_hash,
+            });
         }
 
         match node {
@@ -129,8 +148,13 @@ pub fn verify_proof<H: HashFunctionType>(
                 index += 1;
             }
             TrieNode::Edge { child, path } => {
-                let path_len_usize: usize = path.len.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
-                let index_usize: usize = index.try_into().map_err(|_| ProofVerificationError::ConversionError)?;
+                let path_len_usize: usize = path
+                    .len
+                    .try_into()
+                    .map_err(|_| ProofVerificationError::ConversionError)?;
+                let index_usize: usize = index
+                    .try_into()
+                    .map_err(|_| ProofVerificationError::ConversionError)?;
 
                 let path_bits = path.value.to_bits_be();
                 let relevant_path_bits = &path_bits[path_bits.len() - path_len_usize..];

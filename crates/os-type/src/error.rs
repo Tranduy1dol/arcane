@@ -1,5 +1,5 @@
-use std::error::Error;
 use cairo_lang_starknet_classes::casm_contract_class::StarknetSierraCompilationError;
+use std::error::Error;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ContractClassError {

@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-starknet = { workspace = true }
+arcane-os = { workspace = true }
+arcane-os-type = { workspace = true }
+log = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
-log = { workspace = true }
-arcane-os = { workspace = true }
-arcane-os-type = { workspace = true }
+starknet = { workspace = true }
 starknet-types-core = { workspace = true }
+thiserror = { workspace = true }

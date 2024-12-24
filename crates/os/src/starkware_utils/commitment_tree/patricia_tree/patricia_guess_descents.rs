@@ -1,11 +1,13 @@
-use std::collections::HashMap;
-use std::ops::{Add, Mul};
-use cairo_vm::Felt252;
+use crate::starkware_utils::commitment_tree::base_types::{
+    DescentMap, DescentPath, DescentStart, Height, Length, NodePath,
+};
+use crate::starkware_utils::commitment_tree::update_tree::{TreeUpdate, UpdateTree};
 use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, Length, NodePath};
-use crate::starkware_utils::commitment_tree::update_tree::{TreeUpdate, UpdateTree};
+use std::collections::HashMap;
+use std::ops::{Add, Mul};
 
 type Preimage = HashMap<Felt252, Vec<Felt252>>;
 type Triplet = (Felt252, Felt252, Felt252);
@@ -28,7 +30,10 @@ pub enum DescentError {
 #[allow(clippy::large_enum_variant)]
 enum PreimageNode<'preimage> {
     Leaf,
-    Branch { left: Option<PreimageNodeIterator<'preimage>>, right: Option<PreimageNodeIterator<'preimage>> },
+    Branch {
+        left: Option<PreimageNodeIterator<'preimage>>,
+        right: Option<PreimageNodeIterator<'preimage>>,
+    },
 }
 
 struct PreimageNodeIterator<'preimage> {
@@ -40,7 +45,12 @@ struct PreimageNodeIterator<'preimage> {
 
 impl<'preimage> PreimageNodeIterator<'preimage> {
     fn new(height: Height, preimage: &'preimage Preimage, node: Triplet) -> Self {
-        Self { height, preimage, node, is_done: false }
+        Self {
+            height,
+            preimage,
+            node,
+            is_done: false,
+        }
     }
 }
 
@@ -66,15 +76,26 @@ impl<'preimage> Iterator for PreimageNodeIterator<'preimage> {
         let left_child = if left == empty_node {
             None
         } else {
-            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, left))
+            Some(PreimageNodeIterator::new(
+                self.height - 1,
+                self.preimage,
+                left,
+            ))
         };
         let right_child = if right == empty_node {
             None
         } else {
-            Some(PreimageNodeIterator::new(self.height - 1, self.preimage, right))
+            Some(PreimageNodeIterator::new(
+                self.height - 1,
+                self.preimage,
+                right,
+            ))
         };
 
-        Some(Ok(PreimageNode::Branch { left: left_child, right: right_child }))
+        Some(Ok(PreimageNode::Branch {
+            left: left_child,
+            right: right_child,
+        }))
     }
 }
 
@@ -111,13 +132,22 @@ fn get_children(preimage: &Preimage, node: &Triplet) -> Result<(Triplet, Triplet
         return Ok((canonic(preimage, left), canonic(preimage, right)));
     }
 
-    let length_u64 = length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(length)))?;
+    let length_u64 = length
+        .to_u64()
+        .ok_or(MathError::Felt252ToU64Conversion(Box::new(length)))?;
 
     if word.to_biguint() >> (length_u64 - 1) == BigUint::from(0u64) {
         return Ok(((length - 1, word, node_hash), empty_triplet()));
     }
 
-    Ok((empty_triplet(), (length - 1, word - Felt252::from(BigUint::from(1u64) << (length_u64 - 1)), node_hash)))
+    Ok((
+        empty_triplet(),
+        (
+            length - 1,
+            word - Felt252::from(BigUint::from(1u64) << (length_u64 - 1)),
+            node_hash,
+        ),
+    ))
 }
 
 fn preimage_tree(height: Height, preimage: &Preimage, node: Triplet) -> PreimageNodeIterator {
@@ -184,7 +214,10 @@ where
             path = NodePath(path.0 * 2u64 + 1u64);
             height = Height(height.0 - 1);
             if height.0 == 0 {
-                break ((update_left, previous_left, new_left), (update_right, previous_right, new_right));
+                break (
+                    (update_left, previous_left, new_left),
+                    (update_right, previous_right, new_right),
+                );
             }
 
             update_tree = update_right;
@@ -194,14 +227,20 @@ where
             path = NodePath(path.0 * 2u64);
             height = Height(height.0 - 1);
             if height.0 == 0 {
-                break ((update_left, previous_left, new_left), (update_right, previous_right, new_right));
+                break (
+                    (update_left, previous_left, new_left),
+                    (update_right, previous_right, new_right),
+                );
             }
 
             update_tree = update_left;
             previous_tree = previous_left;
             new_tree = new_left;
         } else {
-            break ((update_left, previous_left, new_left), (update_right, previous_right, new_right));
+            break (
+                (update_left, previous_left, new_left),
+                (update_right, previous_right, new_right),
+            );
         }
     };
 
@@ -210,13 +249,22 @@ where
     if length > 1 {
         descent_map.insert(
             DescentStart(orig_height, orig_path),
-            DescentPath(Length(length), NodePath(path.0.clone() % (BigUint::from(1u64) << length))),
+            DescentPath(
+                Length(length),
+                NodePath(path.0.clone() % (BigUint::from(1u64) << length)),
+            ),
         );
     }
 
     if height.0 > 0 {
         let next_height = Height(height.0 - 1);
-        descent_map.extend(get_descents(next_height, NodePath(path.0.clone().mul(2u64)), lefts.0, lefts.1, lefts.2)?);
+        descent_map.extend(get_descents(
+            next_height,
+            NodePath(path.0.clone().mul(2u64)),
+            lefts.0,
+            lefts.1,
+            lefts.2,
+        )?);
         descent_map.extend(get_descents(
             next_height,
             NodePath(path.0.mul(2u64).add(1u64)),
@@ -239,8 +287,18 @@ pub fn patricia_guess_descents<LF>(
 where
     LF: Clone,
 {
-    let node_prev = preimage_tree(height, preimage, canonic(preimage, Felt252::from(prev_root)));
+    let node_prev = preimage_tree(
+        height,
+        preimage,
+        canonic(preimage, Felt252::from(prev_root)),
+    );
     let node_new = preimage_tree(height, preimage, canonic(preimage, Felt252::from(new_root)));
 
-    get_descents::<LF>(height, NodePath(BigUint::from(0u64)), &node, Some(node_prev), Some(node_new))
+    get_descents::<LF>(
+        height,
+        NodePath(BigUint::from(0u64)),
+        &node,
+        Some(node_prev),
+        Some(node_new),
+    )
 }

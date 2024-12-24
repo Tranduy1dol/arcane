@@ -1,7 +1,7 @@
+use crate::storage::storage::HashFunctionType;
+use arcane_os_type::hash::Hash;
 use cairo_vm::types::errors::math_errors::MathError;
 use starknet_crypto::{pedersen_hash, poseidon_hash_many, FieldElement};
-use arcane_os_type::hash::Hash;
-use crate::storage::storage::HashFunctionType;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PedersenHash;
@@ -16,7 +16,10 @@ impl HashFunctionType for PedersenHash {
 }
 
 pub fn poseidon_hash_many_bytes(msgs: &[&[u8]]) -> Result<Hash, MathError> {
-    let field_elements: Result<Vec<_>, _> = msgs.iter().map(|elem| FieldElement::from_byte_slice_be(elem)).collect();
+    let field_elements: Result<Vec<_>, _> = msgs
+        .iter()
+        .map(|elem| FieldElement::from_byte_slice_be(elem))
+        .collect();
     let field_elements = field_elements.map_err(|_| MathError::ByteConversionError)?;
     let result = poseidon_hash_many(&field_elements);
 

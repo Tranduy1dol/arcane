@@ -1,22 +1,3 @@
-use std::any::Any;
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::vec::IntoIter;
-use cairo_vm::{any_box, Felt252};
-use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name, insert_value_from_var_name, insert_value_into_ap};
-use cairo_vm::hint_processor::hint_processor_definition::HintReference;
-use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
-use cairo_vm::serde::deserialize_program::ApTracking;
-use cairo_vm::types::errors::math_errors::MathError;
-use cairo_vm::types::exec_scope::ExecutionScopes;
-use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
-use cairo_vm::vm::errors::hint_errors::HintError;
-use cairo_vm::vm::vm_core::VirtualMachine;
-use indoc::indoc;
-use num_bigint::BigUint;
-use num_traits::ToPrimitive;
 use crate::cairo_types::new_syscalls;
 use crate::cairo_types::structs::{CallContractResponse, EntryPointReturnValues, ExecutionContext};
 use crate::cairo_types::syscalls::{StorageRead, StorageReadRequest, StorageWrite, TxInfo};
@@ -31,8 +12,32 @@ use crate::io::InternalTransaction;
 use crate::starknet::core::os::transaction_hash::create_resource_bounds_list;
 use crate::starknet::starknet_storage::{PerContractStorage, StorageLeaf};
 use crate::starkware_utils::commitment_tree::base_types::DescentMap;
-use crate::starkware_utils::commitment_tree::update_tree::{DecodeNodeCase, TreeUpdate, UpdateTree};
+use crate::starkware_utils::commitment_tree::update_tree::{
+    DecodeNodeCase, TreeUpdate, UpdateTree,
+};
 use crate::utils::{custom_hint_error, execute_coroutine, get_constant};
+use cairo_vm::hint_processor::builtin_hint_processor::dict_manager::Dictionary;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_maybe_relocatable_from_var_name, get_ptr_from_var_name,
+    insert_value_from_var_name, insert_value_into_ap,
+};
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
+use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
+use cairo_vm::serde::deserialize_program::ApTracking;
+use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::types::exec_scope::ExecutionScopes;
+use cairo_vm::types::relocatable::{MaybeRelocatable, Relocatable};
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::{any_box, Felt252};
+use indoc::indoc;
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
+use std::any::Any;
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::vec::IntoIter;
 
 pub const LOAD_NEXT_TX: &str = indoc! {r#"
         tx = next(transactions)
@@ -63,7 +68,8 @@ pub fn load_next_tx(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let mut transactions = exec_scopes.get::<IntoIter<InternalTransaction>>(vars::scopes::TRANSACTIONS)?;
+    let mut transactions =
+        exec_scopes.get::<IntoIter<InternalTransaction>>(vars::scopes::TRANSACTIONS)?;
     // Safe to unwrap because the remaining number of txs is checked in the cairo code.
     let tx = transactions.next().unwrap();
     if let Some(address) = tx.sender_address {
@@ -109,7 +115,8 @@ pub fn prepare_constructor_execution(
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     insert_value_from_var_name(
         vars::ids::CONTRACT_ADDRESS_SALT,
-        tx.contract_address_salt.expect("`contract_address_salt` must be present"),
+        tx.contract_address_salt
+            .expect("`contract_address_salt` must be present"),
         vm,
         ids_data,
         ap_tracking,
@@ -134,11 +141,21 @@ pub fn prepare_constructor_execution(
         ap_tracking,
     )?;
 
-    let constructor_calldata =
-        tx.constructor_calldata.unwrap_or_default().iter().map(|felt| felt.into()).collect::<Vec<_>>();
+    let constructor_calldata = tx
+        .constructor_calldata
+        .unwrap_or_default()
+        .iter()
+        .map(|felt| felt.into())
+        .collect::<Vec<_>>();
     let constructor_calldata_base = vm.add_memory_segment();
     vm.load_data(constructor_calldata_base, &constructor_calldata)?;
-    insert_value_from_var_name(vars::ids::CONSTRUCTOR_CALLDATA, constructor_calldata_base, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(
+        vars::ids::CONSTRUCTOR_CALLDATA,
+        constructor_calldata_base,
+        vm,
+        ids_data,
+        ap_tracking,
+    )
 }
 
 pub const TRANSACTION_VERSION: &str = "memory[ap] = to_felt_or_relocatable(tx.version)";
@@ -166,9 +183,14 @@ pub fn assert_transaction_hash(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let transaction_hash = get_integer_from_var_name(vars::ids::TRANSACTION_HASH, vm, ids_data, ap_tracking)?;
+    let transaction_hash =
+        get_integer_from_var_name(vars::ids::TRANSACTION_HASH, vm, ids_data, ap_tracking)?;
 
-    println!("tx.hash_value: {}, transaction_hash: {}", tx.hash_value.to_biguint(), transaction_hash.to_biguint());
+    println!(
+        "tx.hash_value: {}, transaction_hash: {}",
+        tx.hash_value.to_biguint(),
+        transaction_hash.to_biguint()
+    );
 
     assert_eq!(
         tx.hash_value,
@@ -193,15 +215,18 @@ pub fn enter_scope_deprecated_syscall_handler<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let dep_sys =
-        exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?;
+    let dep_sys = exec_scopes
+        .get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?;
     let deprecated_syscall_handler: Box<dyn Any> = Box::new(dep_sys);
-    exec_scopes
-        .enter_scope(HashMap::from_iter([(String::from(vars::scopes::SYSCALL_HANDLER), deprecated_syscall_handler)]));
+    exec_scopes.enter_scope(HashMap::from_iter([(
+        String::from(vars::scopes::SYSCALL_HANDLER),
+        deprecated_syscall_handler,
+    )]));
     Ok(())
 }
 
-pub const ENTER_SCOPE_SYSCALL_HANDLER: &str = "vm_enter_scope({'syscall_handler': syscall_handler})";
+pub const ENTER_SCOPE_SYSCALL_HANDLER: &str =
+    "vm_enter_scope({'syscall_handler': syscall_handler})";
 pub fn enter_scope_syscall_handler<PCS>(
     _vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -214,7 +239,10 @@ where
 {
     let sys = exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
     let syscall_handler: Box<dyn Any> = Box::new(sys);
-    exec_scopes.enter_scope(HashMap::from_iter([(String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler)]));
+    exec_scopes.enter_scope(HashMap::from_iter([(
+        String::from(vars::scopes::SYSCALL_HANDLER),
+        syscall_handler,
+    )]));
     Ok(())
 }
 
@@ -226,13 +254,26 @@ fn set_state_entry(
     ids_data: &HashMap<String, HintReference>,
     ap_tracking: &ApTracking,
 ) -> Result<(), HintError> {
-    let val = match exec_scopes.get_dict_manager()?.borrow().get_tracker(dict_ptr)?.data.clone() {
+    let val = match exec_scopes
+        .get_dict_manager()?
+        .borrow()
+        .get_tracker(dict_ptr)?
+        .data
+        .clone()
+    {
         Dictionary::SimpleDictionary(dict) => dict.get(&MaybeRelocatable::Int(key)).cloned(),
-        Dictionary::DefaultDictionary { dict: _d, default_value: _v } => {
-            return Err(custom_hint_error("State changes dictionary should not be a default dict"));
+        Dictionary::DefaultDictionary {
+            dict: _d,
+            default_value: _v,
+        } => {
+            return Err(custom_hint_error(
+                "State changes dictionary should not be a default dict",
+            ));
         }
     };
-    let val = val.ok_or(custom_hint_error("State changes dictionary should not be None"))?;
+    let val = val.ok_or(custom_hint_error(
+        "State changes dictionary should not be None",
+    ))?;
 
     insert_value_from_var_name(vars::ids::STATE_ENTRY, val, vm, ids_data, ap_tracking)?;
     Ok(())
@@ -251,7 +292,8 @@ pub fn get_contract_address_state_entry(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let dict_ptr =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
     set_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
@@ -273,12 +315,21 @@ pub fn set_state_entry_to_account_contract_address(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let dict_ptr =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let tx_info_ptr = get_ptr_from_var_name(vars::ids::TX_INFO, vm, ids_data, ap_tracking)?;
-    let account_contract_address =
-        vm.get_integer((tx_info_ptr + TxInfo::account_contract_address_offset())?)?.into_owned();
+    let account_contract_address = vm
+        .get_integer((tx_info_ptr + TxInfo::account_contract_address_offset())?)?
+        .into_owned();
 
-    set_state_entry(dict_ptr, account_contract_address, vm, exec_scopes, ids_data, ap_tracking)?;
+    set_state_entry(
+        dict_ptr,
+        account_contract_address,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -294,7 +345,13 @@ fn get_state_entry_and_set_new_state_entry(
     set_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
 
     let new_segment = vm.add_memory_segment();
-    insert_value_from_var_name(vars::ids::NEW_STATE_ENTRY, new_segment, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::NEW_STATE_ENTRY,
+        new_segment,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -313,10 +370,18 @@ pub fn get_block_hash_contract_address_state_entry_and_set_new_state_entry(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let dict_ptr =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
 
-    get_state_entry_and_set_new_state_entry(dict_ptr, *key, vm, exec_scopes, ids_data, ap_tracking)?;
+    get_state_entry_and_set_new_state_entry(
+        dict_ptr,
+        *key,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -342,7 +407,8 @@ pub fn get_contract_address_state_entry_and_set_new_state_entry(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let dict_ptr = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let dict_ptr =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     let key = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
     get_state_entry_and_set_new_state_entry(dict_ptr, key, vm, exec_scopes, ids_data, ap_tracking)?;
@@ -359,13 +425,21 @@ pub fn check_is_deprecated(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+    let execution_context =
+        get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
     let class_hash = vm.get_integer((execution_context + 1usize)?).map_err(|_| {
-        HintError::IdentifierHasNoMember(Box::new((vars::ids::EXECUTION_CONTEXT.to_string(), "class_hash".to_string())))
+        HintError::IdentifierHasNoMember(Box::new((
+            vars::ids::EXECUTION_CONTEXT.to_string(),
+            "class_hash".to_string(),
+        )))
     })?;
-    let is_deprecated_class =
-        exec_scopes.get_ref::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?.contains(&class_hash);
-    exec_scopes.insert_value(vars::scopes::IS_DEPRECATED, if is_deprecated_class { 1u8 } else { 0u8 });
+    let is_deprecated_class = exec_scopes
+        .get_ref::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?
+        .contains(&class_hash);
+    exec_scopes.insert_value(
+        vars::scopes::IS_DEPRECATED,
+        if is_deprecated_class { 1u8 } else { 0u8 },
+    );
 
     let execution_into_ptr = vm.get_relocatable((execution_context + 4usize)?).unwrap();
     let contract_address = vm.get_integer((execution_into_ptr + 3usize)?).unwrap();
@@ -388,7 +462,10 @@ pub fn is_deprecated(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    insert_value_into_ap(vm, Felt252::from(exec_scopes.get::<u8>(vars::scopes::IS_DEPRECATED)?))?;
+    insert_value_into_ap(
+        vm,
+        Felt252::from(exec_scopes.get::<u8>(vars::scopes::IS_DEPRECATED)?),
+    )?;
     Ok(())
 }
 
@@ -403,8 +480,20 @@ pub fn os_context_segments(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    insert_value_from_var_name(vars::ids::OS_CONTEXT, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::SYSCALL_PTR, vm.add_memory_segment(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::OS_CONTEXT,
+        vm.add_memory_segment(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    insert_value_from_var_name(
+        vars::ids::SYSCALL_PTR,
+        vm.add_memory_segment(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
     Ok(())
 }
 
@@ -435,20 +524,35 @@ where
     let deprecated_class_hashes: Box<dyn Any> =
         Box::new(exec_scopes.get::<HashSet<Felt252>>(vars::scopes::DEPRECATED_CLASS_HASHES)?);
     let transactions: Box<dyn Any> = Box::new(os_input.transactions.clone().into_iter());
-    let component_hashes: Box<dyn Any> = Box::new(os_input.declared_class_hash_to_component_hashes.clone());
+    let component_hashes: Box<dyn Any> =
+        Box::new(os_input.declared_class_hash_to_component_hashes.clone());
     let execution_helper: Box<dyn Any> =
         Box::new(exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?);
     let deprecated_syscall_handler: Box<dyn Any> =
-        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(vars::scopes::DEPRECATED_SYSCALL_HANDLER)?);
+        Box::new(exec_scopes.get::<DeprecatedOsSyscallHandlerWrapper<PCS>>(
+            vars::scopes::DEPRECATED_SYSCALL_HANDLER,
+        )?);
     let syscall_handler: Box<dyn Any> =
         Box::new(exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?);
     let dict_manager: Box<dyn Any> = Box::new(exec_scopes.get_dict_manager()?);
     exec_scopes.enter_scope(HashMap::from_iter([
-        (String::from(vars::scopes::DEPRECATED_CLASS_HASHES), deprecated_class_hashes),
+        (
+            String::from(vars::scopes::DEPRECATED_CLASS_HASHES),
+            deprecated_class_hashes,
+        ),
         (String::from(vars::scopes::TRANSACTIONS), transactions),
-        (String::from(vars::scopes::COMPONENT_HASHES), component_hashes),
-        (String::from(vars::scopes::EXECUTION_HELPER), execution_helper),
-        (String::from(vars::scopes::DEPRECATED_SYSCALL_HANDLER), deprecated_syscall_handler),
+        (
+            String::from(vars::scopes::COMPONENT_HASHES),
+            component_hashes,
+        ),
+        (
+            String::from(vars::scopes::EXECUTION_HELPER),
+            execution_helper,
+        ),
+        (
+            String::from(vars::scopes::DEPRECATED_SYSCALL_HANDLER),
+            deprecated_syscall_handler,
+        ),
         (String::from(vars::scopes::SYSCALL_HANDLER), syscall_handler),
         (String::from(vars::scopes::DICT_MANAGER), dict_manager),
     ]));
@@ -460,7 +564,8 @@ pub async fn end_tx_async<PCS>(exec_scopes: &mut ExecutionScopes) -> Result<(), 
 where
     PCS: PerContractStorage + 'static,
 {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.end_tx().await;
     Ok(())
 }
@@ -495,10 +600,11 @@ where
     let execution_info_ptr = vm.get_relocatable(
         (get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?
             + ExecutionContext::execution_info_offset())
-            .unwrap(),
+        .unwrap(),
     )?;
 
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.enter_call(Some(execution_info_ptr)).await;
     Ok(())
 }
@@ -513,7 +619,12 @@ pub fn enter_call<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(enter_call_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(enter_call_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const EXIT_CALL: &str = "execution_helper.exit_call()";
@@ -521,7 +632,8 @@ pub async fn exit_call_async<PCS>(exec_scopes: &mut ExecutionScopes) -> Result<(
 where
     PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     execution_helper.exit_call().await;
     Ok(())
 }
@@ -557,11 +669,19 @@ pub fn contract_address(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let contract_address = if tx.r#type == "L1_HANDLER" {
-        tx.contract_address.ok_or(custom_hint_error("tx.contract_address is None"))?
+        tx.contract_address
+            .ok_or(custom_hint_error("tx.contract_address is None"))?
     } else {
-        tx.sender_address.ok_or(custom_hint_error("tx.sender_address is None"))?
+        tx.sender_address
+            .ok_or(custom_hint_error("tx.sender_address is None"))?
     };
-    insert_value_from_var_name(vars::ids::CONTRACT_ADDRESS, contract_address, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(
+        vars::ids::CONTRACT_ADDRESS,
+        contract_address,
+        vm,
+        ids_data,
+        ap_tracking,
+    )
 }
 
 pub const TX_CALLDATA_LEN: &str = "memory[ap] = to_felt_or_relocatable(len(tx.calldata))";
@@ -574,7 +694,10 @@ pub fn tx_calldata_len(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let len = tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.len();
+    let len = tx
+        .calldata
+        .ok_or(custom_hint_error("tx.calldata is None"))?
+        .len();
     insert_value_into_ap(vm, Felt252::from(len))
 }
 
@@ -588,14 +711,19 @@ pub fn tx_calldata(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let calldata =
-        tx.calldata.ok_or(custom_hint_error("tx.calldata is None"))?.iter().map(|felt| felt.into()).collect::<Vec<_>>();
+    let calldata = tx
+        .calldata
+        .ok_or(custom_hint_error("tx.calldata is None"))?
+        .iter()
+        .map(|felt| felt.into())
+        .collect::<Vec<_>>();
     let calldata_base = vm.add_memory_segment();
     vm.load_data(calldata_base, &calldata)?;
     insert_value_into_ap(vm, calldata_base)
 }
 
-pub const TX_ENTRY_POINT_SELECTOR: &str = "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
+pub const TX_ENTRY_POINT_SELECTOR: &str =
+    "memory[ap] = to_felt_or_relocatable(tx.entry_point_selector)";
 pub fn tx_entry_point_selector(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -604,7 +732,9 @@ pub fn tx_entry_point_selector(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let entry_point_selector = tx.entry_point_selector.ok_or(custom_hint_error("tx.entry_point_selector is None"))?;
+    let entry_point_selector = tx
+        .entry_point_selector
+        .ok_or(custom_hint_error("tx.entry_point_selector is None"))?;
     insert_value_into_ap(vm, entry_point_selector)
 }
 
@@ -633,18 +763,27 @@ pub fn resource_bounds(
     let resource_bounds = if version < Felt252::THREE {
         MaybeRelocatable::Int(Felt252::ZERO)
     } else {
-        let resource_bounds: Vec<_> =
-            create_resource_bounds_list(&tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?)
-                .iter()
-                .map(|f| MaybeRelocatable::Int(*f))
-                .collect();
+        let resource_bounds: Vec<_> = create_resource_bounds_list(
+            &tx.resource_bounds
+                .ok_or(custom_hint_error("tx.resource_bounds is None"))?,
+        )
+        .iter()
+        .map(|f| MaybeRelocatable::Int(*f))
+        .collect();
         vm.gen_arg(&resource_bounds)?
     };
 
-    insert_value_from_var_name(vars::ids::RESOURCE_BOUNDS, resource_bounds, vm, ids_data, ap_tracking)
+    insert_value_from_var_name(
+        vars::ids::RESOURCE_BOUNDS,
+        resource_bounds,
+        vm,
+        ids_data,
+        ap_tracking,
+    )
 }
 
-pub const TX_MAX_FEE: &str = "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
+pub const TX_MAX_FEE: &str =
+    "memory[ap] = to_felt_or_relocatable(tx.max_fee if tx.version < 3 else 0)";
 pub fn tx_max_fee(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -663,7 +802,8 @@ pub fn tx_max_fee(
     insert_value_into_ap(vm, max_fee)
 }
 
-pub const TX_NONCE: &str = "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
+pub const TX_NONCE: &str =
+    "memory[ap] = to_felt_or_relocatable(0 if tx.nonce is None else tx.nonce)";
 pub fn tx_nonce(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -672,7 +812,11 @@ pub fn tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let nonce = if tx.nonce.is_none() { 0.into() } else { tx.nonce.ok_or(custom_hint_error("tx.nonce is None"))? };
+    let nonce = if tx.nonce.is_none() {
+        0.into()
+    } else {
+        tx.nonce.ok_or(custom_hint_error("tx.nonce is None"))?
+    };
     insert_value_into_ap(vm, nonce)
 }
 
@@ -686,8 +830,11 @@ pub fn tx_tip(
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
     let version = tx.version.unwrap_or(Felt252::ZERO);
-    let tip =
-        if version < Felt252::THREE { Felt252::ZERO } else { tx.tip.ok_or(custom_hint_error("tx.tip is None"))? };
+    let tip = if version < Felt252::THREE {
+        Felt252::ZERO
+    } else {
+        tx.tip.ok_or(custom_hint_error("tx.tip is None"))?
+    };
 
     insert_value_into_ap(vm, tip)
 }
@@ -706,7 +853,11 @@ pub fn tx_resource_bounds_len(
     let resource_bounds = if version < Felt252::THREE {
         Felt252::ZERO
     } else {
-        tx.resource_bounds.ok_or(custom_hint_error("tx.resource_bounds is None"))?.0.len().into()
+        tx.resource_bounds
+            .ok_or(custom_hint_error("tx.resource_bounds is None"))?
+            .0
+            .len()
+            .into()
     };
     insert_value_into_ap(vm, resource_bounds)
 }
@@ -724,7 +875,10 @@ pub fn tx_paymaster_data_len(
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
         Felt252::ZERO
     } else {
-        tx.paymaster_data.ok_or(custom_hint_error("tx.paymaster_data is None"))?.len().into()
+        tx.paymaster_data
+            .ok_or(custom_hint_error("tx.paymaster_data is None"))?
+            .len()
+            .into()
     };
     insert_value_into_ap(vm, len)
 }
@@ -768,7 +922,8 @@ pub fn tx_nonce_data_availability_mode(
     let nonce_data_availability_mode = if version < Felt252::THREE {
         Felt252::ZERO
     } else {
-        tx.nonce_data_availability_mode.ok_or(custom_hint_error("tx.nonce_data_availability_mode is None"))?
+        tx.nonce_data_availability_mode
+            .ok_or(custom_hint_error("tx.nonce_data_availability_mode is None"))?
     };
     insert_value_into_ap(vm, nonce_data_availability_mode)
 }
@@ -787,7 +942,8 @@ pub fn tx_fee_data_availability_mode(
     let fee_data_availability_mode = if version < Felt252::THREE {
         Felt252::ZERO
     } else {
-        tx.fee_data_availability_mode.ok_or(custom_hint_error("tx.fee_data_availability_mode is None"))?
+        tx.fee_data_availability_mode
+            .ok_or(custom_hint_error("tx.fee_data_availability_mode is None"))?
     };
     insert_value_into_ap(vm, fee_data_availability_mode)
 }
@@ -805,7 +961,9 @@ pub fn tx_account_deployment_data_len(
     let len = if tx.version.unwrap_or(Felt252::ZERO) < Felt252::THREE {
         0usize
     } else {
-        tx.account_deployment_data.ok_or(custom_hint_error("tx.account_deployment_data is None"))?.len()
+        tx.account_deployment_data
+            .ok_or(custom_hint_error("tx.account_deployment_data is None"))?
+            .len()
     };
 
     insert_value_into_ap(vm, Felt252::from(len))
@@ -850,13 +1008,30 @@ pub fn gen_signature_arg(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx = exec_scopes.get::<InternalTransaction>(vars::scopes::TX)?;
-    let signature = tx.signature.ok_or(custom_hint_error("tx.signature is None"))?;
+    let signature = tx
+        .signature
+        .ok_or(custom_hint_error("tx.signature is None"))?;
     let signature_start_base = vm.add_memory_segment();
-    let signature = signature.iter().map(|f| MaybeRelocatable::Int(*f)).collect::<Vec<_>>();
+    let signature = signature
+        .iter()
+        .map(|f| MaybeRelocatable::Int(*f))
+        .collect::<Vec<_>>();
     vm.load_data(signature_start_base, &signature)?;
 
-    insert_value_from_var_name(vars::ids::SIGNATURE_START, signature_start_base, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::SIGNATURE_LEN, signature.len(), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::SIGNATURE_START,
+        signature_start_base,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    insert_value_from_var_name(
+        vars::ids::SIGNATURE_LEN,
+        signature.len(),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -874,10 +1049,13 @@ pub async fn start_tx_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let tx_execution_context = get_ptr_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let tx_execution_context =
+        get_ptr_from_var_name(vars::ids::TX_EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+    let execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
 
-    let tx_info_ptr = vm.get_relocatable((tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?)?;
+    let tx_info_ptr = vm
+        .get_relocatable((tx_execution_context + ExecutionContext::deprecated_tx_info_offset())?)?;
 
     execution_helper.start_tx(Some(tx_info_ptr)).await;
     Ok(())
@@ -893,10 +1071,16 @@ pub fn start_tx<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(start_tx_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(start_tx_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
-pub const IS_REVERTED: &str = "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
+pub const IS_REVERTED: &str =
+    "memory[ap] = to_felt_or_relocatable(execution_helper.tx_execution_info.is_reverted)";
 pub fn is_reverted<PCS>(
     vm: &mut VirtualMachine,
     exec_scopes: &mut ExecutionScopes,
@@ -907,13 +1091,18 @@ pub fn is_reverted<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     let is_reverted = execute_coroutine(async {
         let eh_ref = execution_helper.execution_helper.read().await;
         eh_ref
             .tx_execution_info
             .as_ref()
-            .ok_or(HintError::CustomHint("ExecutionHelper should have tx_execution_info".to_owned().into_boxed_str()))
+            .ok_or(HintError::CustomHint(
+                "ExecutionHelper should have tx_execution_info"
+                    .to_owned()
+                    .into_boxed_str(),
+            ))
             .map(|tx_execution_info| tx_execution_info.is_reverted())
     })??;
 
@@ -960,18 +1149,29 @@ pub async fn check_execution_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let return_values_ptr = get_ptr_from_var_name(vars::ids::ENTRY_POINT_RETURN_VALUES, vm, ids_data, ap_tracking)?;
+    let return_values_ptr = get_ptr_from_var_name(
+        vars::ids::ENTRY_POINT_RETURN_VALUES,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
-    let failure_flag = vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
+    let failure_flag =
+        vm.get_integer((return_values_ptr + EntryPointReturnValues::failure_flag_offset())?)?;
     if failure_flag.into_owned() != Felt252::ZERO {
-        let retdata_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_end_offset())?)?;
-        let retdata_start =
-            vm.get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_start_offset())?)?;
+        let retdata_end = vm
+            .get_relocatable((return_values_ptr + EntryPointReturnValues::retdata_end_offset())?)?;
+        let retdata_start = vm.get_relocatable(
+            (return_values_ptr + EntryPointReturnValues::retdata_start_offset())?,
+        )?;
         let retdata_size = (retdata_end - retdata_start)?;
         let error = vm.get_range(retdata_start, std::cmp::min(100, retdata_size as usize));
-        let execution_context = get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
-        let class_hash = vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
-        let selector = vm.get_relocatable((execution_context + ExecutionContext::execution_info_offset())?)?;
+        let execution_context =
+            get_ptr_from_var_name(vars::ids::EXECUTION_CONTEXT, vm, ids_data, ap_tracking)?;
+        let class_hash =
+            vm.get_integer((execution_context + ExecutionContext::class_hash_offset())?)?;
+        let selector =
+            vm.get_relocatable((execution_context + ExecutionContext::execution_info_offset())?)?;
         log::debug!("Invalid return value in execute_entry_point:");
         log::debug!("  Class hash: {}", class_hash.to_hex_string());
         log::debug!("  Selector: {}", selector);
@@ -979,7 +1179,8 @@ where
         log::debug!("  Error (at most 100 elements): {:?}", error);
     }
 
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
     // TODO: make sure it is necessary to check the gas costs
     // if execution_helper.debug_mode {
     //     let actual = get_integer_from_var_name("remaining_gas", vm, ids_data, ap_tracking)?;
@@ -993,9 +1194,13 @@ where
     //     );
     // }
 
-    let syscall_ptr_end = vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
-    let syscall_handler = exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
-    syscall_handler.validate_and_discard_syscall_ptr(syscall_ptr_end).await?;
+    let syscall_ptr_end =
+        vm.get_relocatable((return_values_ptr + EntryPointReturnValues::syscall_ptr_offset())?)?;
+    let syscall_handler =
+        exec_scopes.get::<OsSyscallHandlerWrapper<PCS>>(vars::scopes::SYSCALL_HANDLER)?;
+    syscall_handler
+        .validate_and_discard_syscall_ptr(syscall_ptr_end)
+        .await?;
     execution_helper.exit_call().await;
 
     Ok(())
@@ -1011,7 +1216,12 @@ pub fn check_execution<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(check_execution_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(check_execution_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 fn assert_memory_ranges_equal(
@@ -1026,7 +1236,8 @@ fn assert_memory_ranges_equal(
 
     if expected != actual {
         return Err(HintError::AssertionFailed(
-            format!("Return value mismatch expected={expected:?}, actual={actual:?}.").into_boxed_str(),
+            format!("Return value mismatch expected={expected:?}, actual={actual:?}.")
+                .into_boxed_str(),
         ));
     }
 
@@ -1050,16 +1261,27 @@ pub fn check_syscall_response(
     ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    let call_response_ptr = get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
-    let call_response_retdata = vm.get_relocatable((call_response_ptr + CallContractResponse::retdata_offset())?)?;
-    let call_response_retdata_size =
-        felt_to_usize(vm.get_integer((call_response_ptr + CallContractResponse::retdata_size_offset())?)?.as_ref())?;
+    let call_response_ptr =
+        get_ptr_from_var_name(vars::ids::CALL_RESPONSE, vm, ids_data, ap_tracking)?;
+    let call_response_retdata =
+        vm.get_relocatable((call_response_ptr + CallContractResponse::retdata_offset())?)?;
+    let call_response_retdata_size = felt_to_usize(
+        vm.get_integer((call_response_ptr + CallContractResponse::retdata_size_offset())?)?
+            .as_ref(),
+    )?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+    let retdata_size = felt_to_usize(
+        get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref(),
+    )?;
 
-    assert_memory_ranges_equal(vm, call_response_retdata, call_response_retdata_size, retdata, retdata_size)?;
+    assert_memory_ranges_equal(
+        vm,
+        call_response_retdata,
+        call_response_retdata_size,
+        retdata,
+        retdata_size,
+    )?;
 
     Ok(())
 }
@@ -1083,17 +1305,26 @@ pub fn check_new_syscall_response(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let response_ptr = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
-    let response_retdata_start =
-        vm.get_relocatable((response_ptr + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
-    let response_retdata_end =
-        vm.get_relocatable((response_ptr + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
+    let response_retdata_start = vm.get_relocatable(
+        (response_ptr + new_syscalls::CallContractResponse::retdata_start_offset())?,
+    )?;
+    let response_retdata_end = vm.get_relocatable(
+        (response_ptr + new_syscalls::CallContractResponse::retdata_end_offset())?,
+    )?;
     let response_retdata_size = (response_retdata_end - response_retdata_start)?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+    let retdata_size = felt_to_usize(
+        get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref(),
+    )?;
 
-    assert_memory_ranges_equal(vm, response_retdata_start, response_retdata_size, retdata, retdata_size)?;
+    assert_memory_ranges_equal(
+        vm,
+        response_retdata_start,
+        response_retdata_size,
+        retdata,
+        retdata_size,
+    )?;
 
     Ok(())
 }
@@ -1128,26 +1359,37 @@ pub fn check_new_deploy_response(
     // that the contents are equal.
     let retdata_start_key: Relocatable =
         (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?;
-    let maybe_retdata_start = vm
-        .get_maybe(&retdata_start_key)
-        .ok_or(HintError::VariableNotInScopeError("retdata".to_string().into_boxed_str()))?;
+    let maybe_retdata_start =
+        vm.get_maybe(&retdata_start_key)
+            .ok_or(HintError::VariableNotInScopeError(
+                "retdata".to_string().into_boxed_str(),
+            ))?;
     let zero = MaybeRelocatable::Int(Felt252::ZERO);
     if maybe_retdata_start == zero {
         log::warn!("retdata_start is 0, not a relocatable, ignoring add_relocation_rule()");
         return Ok(());
     }
 
-    let constructor_retdata_start =
-        vm.get_relocatable((response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?)?;
-    let constructor_retdata_end =
-        vm.get_relocatable((response_ptr + new_syscalls::DeployResponse::constructor_retdata_end_offset())?)?;
+    let constructor_retdata_start = vm.get_relocatable(
+        (response_ptr + new_syscalls::DeployResponse::constructor_retdata_start_offset())?,
+    )?;
+    let constructor_retdata_end = vm.get_relocatable(
+        (response_ptr + new_syscalls::DeployResponse::constructor_retdata_end_offset())?,
+    )?;
     let response_retdata_size = (constructor_retdata_end - constructor_retdata_start)?;
 
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size =
-        felt_to_usize(get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref())?;
+    let retdata_size = felt_to_usize(
+        get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?.as_ref(),
+    )?;
 
-    assert_memory_ranges_equal(vm, constructor_retdata_start, response_retdata_size, retdata, retdata_size)?;
+    assert_memory_ranges_equal(
+        vm,
+        constructor_retdata_start,
+        response_retdata_size,
+        retdata,
+        retdata_size,
+    )?;
 
     Ok(())
 }
@@ -1178,12 +1420,16 @@ pub fn log_enter_syscall(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let selector = get_integer_from_var_name(vars::ids::SELECTOR, _vm, ids_data, _ap_tracking)?;
-    log::trace!("entering syscall: {:?} execution", SyscallSelector::try_from(selector)?);
+    log::trace!(
+        "entering syscall: {:?} execution",
+        SyscallSelector::try_from(selector)?
+    );
     // TODO: implement logging
     Ok(())
 }
 
-pub const INITIAL_GE_REQUIRED_GAS: &str = "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
+pub const INITIAL_GE_REQUIRED_GAS: &str =
+    "memory[ap] = to_felt_or_relocatable(ids.initial_gas >= ids.required_gas)";
 pub fn initial_ge_required_gas(
     vm: &mut VirtualMachine,
     _exec_scopes: &mut ExecutionScopes,
@@ -1224,22 +1470,40 @@ pub fn check_response_return_value(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
 
     let response = get_ptr_from_var_name(vars::ids::RESPONSE, vm, ids_data, ap_tracking)?;
-    let response_retdata_start =
-        vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_start_offset())?)?;
+    let response_retdata_start = vm.get_relocatable(
+        (response + new_syscalls::CallContractResponse::retdata_start_offset())?,
+    )?;
     let response_retdata_end =
         vm.get_relocatable((response + new_syscalls::CallContractResponse::retdata_end_offset())?)?;
 
-    let expected = vm.get_range(response_retdata_start, (response_retdata_end - response_retdata_start)?);
-    let actual =
-        vm.get_range(retdata, retdata_size.as_ref().to_usize().ok_or(custom_hint_error("retdata_size is not usize"))?);
+    let expected = vm.get_range(
+        response_retdata_start,
+        (response_retdata_end - response_retdata_start)?,
+    );
+    let actual = vm.get_range(
+        retdata,
+        retdata_size
+            .as_ref()
+            .to_usize()
+            .ok_or(custom_hint_error("retdata_size is not usize"))?,
+    );
 
-    assert_eq!(expected, actual, "Return value mismatch; expected={:?}, actual={:?}", expected, actual);
+    assert_eq!(
+        expected, actual,
+        "Return value mismatch; expected={:?}, actual={:?}",
+        expected, actual
+    );
 
     // relocate_segment(src_ptr=response.retdata_start, dest_ptr=retdata);
-    log::debug!("response_retdata_start: {}, retdata: {}", response_retdata_start, retdata);
+    log::debug!(
+        "response_retdata_start: {}, retdata: {}",
+        response_retdata_start,
+        retdata
+    );
 
     Ok(())
 }
@@ -1254,19 +1518,30 @@ async fn cache_contract_storage<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper = exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper =
+        exec_scopes.get::<ExecutionHelperWrapper<PCS>>(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
 
     let value = execution_helper
         .read_storage_for_address(contract_address, key)
         .await
-        .map_err(|e| custom_hint_error(format!("Failed to read storage for contract {}: {e}", contract_address)))?;
+        .map_err(|e| {
+            custom_hint_error(format!(
+                "Failed to read storage for contract {}: {e}",
+                contract_address
+            ))
+        })?;
 
     let ids_value = get_integer_from_var_name(vars::ids::VALUE, vm, ids_data, ap_tracking)?;
     if ids_value != value {
         return Err(HintError::AssertionFailed(
-            format!("Inconsistent storage value (expected {}, got {})", ids_value, value).into_boxed_str(),
+            format!(
+                "Inconsistent storage value (expected {}, got {})",
+                ids_value, value
+            )
+            .into_boxed_str(),
         ));
     }
 
@@ -1275,7 +1550,8 @@ where
     Ok(())
 }
 
-pub const ADD_RELOCATION_RULE: &str = "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
+pub const ADD_RELOCATION_RULE: &str =
+    "memory.add_relocation_rule(src_ptr=ids.src_ptr, dest_ptr=ids.dest_ptr)";
 
 pub fn add_relocation_rule(
     vm: &mut VirtualMachine,
@@ -1288,8 +1564,10 @@ pub fn add_relocation_rule(
     // add_relocation_rule() can be called sometimes with Int(0) instead of Relocatables. This is
     // a result of `cast(0, felt*)` being treated as Int(0). We can work around this here by
     // ensuring that both src and dest end up being Int(0), and in that case we no-op here.
-    let src_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
-    let dest_ptr_maybe = get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
+    let src_ptr_maybe =
+        get_maybe_relocatable_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
+    let dest_ptr_maybe =
+        get_maybe_relocatable_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?;
 
     let zero = MaybeRelocatable::Int(Felt252::ZERO);
     if src_ptr_maybe == zero && dest_ptr_maybe == zero {
@@ -1300,7 +1578,10 @@ pub fn add_relocation_rule(
     let src_ptr = get_ptr_from_var_name(vars::ids::SRC_PTR, vm, ids_data, ap_tracking)?;
 
     assert_eq!(src_ptr.offset, 0, "src_ptr offset should be 0");
-    assert!(src_ptr.segment_index < 0, "src_ptr segment is not a temp segment");
+    assert!(
+        src_ptr.segment_index < 0,
+        "src_ptr segment is not a temp segment"
+    );
 
     // Bugfix: this is a workaround for an issue in cairo-vm related to the way it computes
     // `dest_ptr` in `segment_arena.cairo`. For some reason it sets `dest_ptr` to 0 (felt) instead
@@ -1309,13 +1590,14 @@ pub fn add_relocation_rule(
     // first. We check this by determining if the "infos" variable is declared.
     // If it is the case, we simply recompute `dest_ptr` manually.
 
-    let dest_ptr = if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
-        let infos_0_end = vm.get_relocatable((infos + 1)?)?;
-        log::warn!("rewriting dest_ptr for segment_arena workaround");
-        (infos_0_end + 1u32)?
-    } else {
-        get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
-    };
+    let dest_ptr =
+        if let Ok(infos) = get_ptr_from_var_name(vars::ids::INFOS, vm, ids_data, ap_tracking) {
+            let infos_0_end = vm.get_relocatable((infos + 1)?)?;
+            log::warn!("rewriting dest_ptr for segment_arena workaround");
+            (infos_0_end + 1u32)?
+        } else {
+            get_ptr_from_var_name(vars::ids::DEST_PTR, vm, ids_data, ap_tracking)?
+        };
 
     vm.add_relocation_rule(src_ptr, dest_ptr)?;
 
@@ -1331,7 +1613,9 @@ pub fn set_ap_to_tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
-    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed(
+        "tx.nonce should be set".to_string().into_boxed_str(),
+    ))?;
     insert_value_into_ap(vm, nonce)?;
 
     Ok(())
@@ -1347,13 +1631,18 @@ pub fn set_fp_plus_4_to_tx_nonce(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let tx: &InternalTransaction = exec_scopes.get_ref(vars::scopes::TX)?;
-    let nonce = tx.nonce.ok_or(HintError::AssertionFailed("tx.nonce should be set".to_string().into_boxed_str()))?;
+    let nonce = tx.nonce.ok_or(HintError::AssertionFailed(
+        "tx.nonce should be set".to_string().into_boxed_str(),
+    ))?;
     vm.insert_value((vm.get_fp() + 4)?, nonce)?;
 
     Ok(())
 }
 
-pub fn enter_node_scope(node: UpdateTree<StorageLeaf>, exec_scopes: &mut ExecutionScopes) -> Result<(), HintError> {
+pub fn enter_node_scope(
+    node: UpdateTree<StorageLeaf>,
+    exec_scopes: &mut ExecutionScopes,
+) -> Result<(), HintError> {
     // vm_enter_scope(dict(node=new_node, **common_args))"#
     // In this implementation we assume that `common_args` is unpacked, having a
     // `HashMap<String, Box<dyn Any>>` as scope variable is unpractical.
@@ -1368,7 +1657,10 @@ pub fn enter_node_scope(node: UpdateTree<StorageLeaf>, exec_scopes: &mut Executi
             (vars::scopes::NODE.to_string(), any_box!(node)),
             (vars::scopes::PREIMAGE.to_string(), any_box!(preimage)),
             (vars::scopes::DESCENT_MAP.to_string(), any_box!(descent_map)),
-            (vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string(), any_box!(patricia_skip_validation_runner)),
+            (
+                vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER.to_string(),
+                any_box!(patricia_skip_validation_runner),
+            ),
         ])
     };
     exec_scopes.enter_scope(new_scope);
@@ -1430,7 +1722,11 @@ fn enter_scope_next_node(
 
     let bit = get_integer_from_var_name(vars::ids::BIT, vm, ids_data, ap_tracking)?;
 
-    let next_node = if bit.as_ref() == &bit_value { left_child } else { right_child };
+    let next_node = if bit.as_ref() == &bit_value {
+        left_child
+    } else {
+        right_child
+    };
 
     enter_node_scope(next_node, exec_scopes)?;
 
@@ -1510,7 +1806,9 @@ pub fn enter_scope_descend_edge(
     let mut new_node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
     let length = {
         let length = get_integer_from_var_name(vars::ids::LENGTH, vm, ids_data, ap_tracking)?;
-        length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(length)))?
+        length
+            .to_u64()
+            .ok_or(MathError::Felt252ToU64Conversion(Box::new(length)))?
     };
     let word = get_integer_from_var_name(vars::ids::WORD, vm, ids_data, ap_tracking)?.to_biguint();
 
@@ -1558,27 +1856,44 @@ pub async fn write_syscall_result_deprecated_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper: ExecutionHelperWrapper<PCS> =
+        exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let syscall_ptr = get_ptr_from_var_name(vars::ids::SYSCALL_PTR, vm, ids_data, ap_tracking)?;
 
     // ids.prev_value = storage.read(key=ids.syscall_ptr.address)
-    let storage_write_address = vm.get_integer((syscall_ptr + StorageWrite::address_offset())?)?.into_owned();
+    let storage_write_address = vm
+        .get_integer((syscall_ptr + StorageWrite::address_offset())?)?
+        .into_owned();
     let prev_value = execution_helper
         .read_storage_for_address(contract_address, storage_write_address)
         .await
-        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
+        .map_err(|_| {
+            custom_hint_error(format!(
+                "Storage not found for contract {}",
+                contract_address
+            ))
+        })?;
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.syscall_ptr.address, value=ids.syscall_ptr.value)
-    let storage_write_value = vm.get_integer((syscall_ptr + StorageWrite::value_offset())?)?.into_owned();
+    let storage_write_value = vm
+        .get_integer((syscall_ptr + StorageWrite::value_offset())?)?
+        .into_owned();
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|_| custom_hint_error(format!("Storage not found for contract {}", contract_address)))?;
+        .map_err(|_| {
+            custom_hint_error(format!(
+                "Storage not found for contract {}",
+                contract_address
+            ))
+        })?;
 
-    let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let contract_state_changes =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
         contract_state_changes,
         contract_address,
@@ -1601,7 +1916,12 @@ pub fn write_syscall_result_deprecated<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(write_syscall_result_deprecated_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(write_syscall_result_deprecated_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const WRITE_SYSCALL_RESULT: &str = indoc! {r#"
@@ -1623,26 +1943,38 @@ pub async fn write_syscall_result_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper: ExecutionHelperWrapper<PCS> =
+        exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let contract_address = get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
+    let contract_address =
+        get_integer_from_var_name(vars::ids::CONTRACT_ADDRESS, vm, ids_data, ap_tracking)?;
     let request = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let storage_write_address = *vm.get_integer((request + new_syscalls::StorageWriteRequest::key_offset())?)?;
-    let storage_write_value =
-        vm.get_integer((request + new_syscalls::StorageWriteRequest::value_offset())?)?.into_owned();
+    let storage_write_address =
+        *vm.get_integer((request + new_syscalls::StorageWriteRequest::key_offset())?)?;
+    let storage_write_value = vm
+        .get_integer((request + new_syscalls::StorageWriteRequest::value_offset())?)?
+        .into_owned();
 
     // ids.prev_value = storage.read(key=ids.request.key)
-    let prev_value =
-        execution_helper.read_storage_for_address(contract_address, storage_write_address).await.unwrap_or_default();
+    let prev_value = execution_helper
+        .read_storage_for_address(contract_address, storage_write_address)
+        .await
+        .unwrap_or_default();
     insert_value_from_var_name(vars::ids::PREV_VALUE, prev_value, vm, ids_data, ap_tracking)?;
 
     // storage.write(key=ids.request.key, value=ids.request.value)
     execution_helper
         .write_storage_for_address(contract_address, storage_write_address, storage_write_value)
         .await
-        .map_err(|e| custom_hint_error(format!("Failed to write storage for contract {}: {e}", contract_address)))?;
+        .map_err(|e| {
+            custom_hint_error(format!(
+                "Failed to write storage for contract {}: {e}",
+                contract_address
+            ))
+        })?;
 
-    let contract_state_changes = get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
+    let contract_state_changes =
+        get_ptr_from_var_name(vars::ids::CONTRACT_STATE_CHANGES, vm, ids_data, ap_tracking)?;
     get_state_entry_and_set_new_state_entry(
         contract_state_changes,
         contract_address,
@@ -1665,7 +1997,12 @@ pub fn write_syscall_result<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(write_syscall_result_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(write_syscall_result_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const GEN_CLASS_HASH_ARG: &str = indoc! {r#"
@@ -1693,30 +2030,58 @@ pub fn gen_class_hash_arg(
 ) -> Result<(), HintError> {
     let tx: InternalTransaction = exec_scopes.get(vars::scopes::TX)?;
 
-    let tx_version = tx.version.ok_or(custom_hint_error("tx.version is not set"))?;
-    let sender_address = tx.sender_address.ok_or(custom_hint_error("tx.sender_address is not set"))?;
-    let class_hash = tx.class_hash.ok_or(custom_hint_error("tx.class_hash is not set"))?;
+    let tx_version = tx
+        .version
+        .ok_or(custom_hint_error("tx.version is not set"))?;
+    let sender_address = tx
+        .sender_address
+        .ok_or(custom_hint_error("tx.sender_address is not set"))?;
+    let class_hash = tx
+        .class_hash
+        .ok_or(custom_hint_error("tx.class_hash is not set"))?;
 
     insert_value_from_var_name(vars::ids::TX_VERSION, tx_version, vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::SENDER_ADDRESS, sender_address, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::SENDER_ADDRESS,
+        sender_address,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let class_hash_ptr_arg = vm.gen_arg(&vec![MaybeRelocatable::Int(class_hash)])?;
-    insert_value_from_var_name(vars::ids::CLASS_HASH_PTR, class_hash_ptr_arg, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::CLASS_HASH_PTR,
+        class_hash_ptr_arg,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     let compiled_class_hash = if tx_version <= Felt252::ONE {
         if tx.compiled_class_hash.is_some() {
             return Err(HintError::AssertionFailed(
-                "Deprecated declare must not have compiled_class_hash.".to_string().into_boxed_str(),
+                "Deprecated declare must not have compiled_class_hash."
+                    .to_string()
+                    .into_boxed_str(),
             ));
         }
         Felt252::ZERO
     } else {
         tx.compiled_class_hash.ok_or(HintError::AssertionFailed(
-            "Declare must have a concrete compiled_class_hash.".to_string().into_boxed_str(),
+            "Declare must have a concrete compiled_class_hash."
+                .to_string()
+                .into_boxed_str(),
         ))?
     };
 
-    insert_value_from_var_name(vars::ids::COMPILED_CLASS_HASH, compiled_class_hash, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::COMPILED_CLASS_HASH,
+        compiled_class_hash,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -1736,18 +2101,33 @@ pub async fn write_old_block_to_storage_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let mut execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let mut execution_helper: ExecutionHelperWrapper<PCS> =
+        exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
 
-    let block_hash_contract_address = get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
-    let old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
-    let old_block_hash = get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
+    let block_hash_contract_address =
+        get_constant(vars::constants::BLOCK_HASH_CONTRACT_ADDRESS, constants)?;
+    let old_block_number =
+        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
+    let old_block_hash =
+        get_integer_from_var_name(vars::ids::OLD_BLOCK_HASH, vm, ids_data, ap_tracking)?;
 
-    log::debug!("writing block number: {} -> block hash: {}", old_block_number, old_block_hash);
+    log::debug!(
+        "writing block number: {} -> block hash: {}",
+        old_block_number,
+        old_block_hash
+    );
     execution_helper
-        .write_storage_for_address(*block_hash_contract_address, old_block_number, old_block_hash)
+        .write_storage_for_address(
+            *block_hash_contract_address,
+            old_block_number,
+            old_block_hash,
+        )
         .await
         .map_err(|e| {
-            custom_hint_error(format!("Failed to write storage for contract {}: {e}", block_hash_contract_address))
+            custom_hint_error(format!(
+                "Failed to write storage for contract {}: {e}",
+                block_hash_contract_address
+            ))
         })?;
 
     Ok(())
@@ -1763,7 +2143,13 @@ pub fn write_old_block_to_storage<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(write_old_block_to_storage_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking, constants))?
+    execute_coroutine(write_old_block_to_storage_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    ))?
 }
 
 pub const CACHE_CONTRACT_STORAGE_REQUEST_KEY: &str = indoc! {r#"
@@ -1784,9 +2170,17 @@ where
     PCS: PerContractStorage + 'static,
 {
     let request_ptr = get_ptr_from_var_name(vars::ids::REQUEST, vm, ids_data, ap_tracking)?;
-    let key = vm.get_integer((request_ptr + new_syscalls::StorageReadRequest::key_offset())?)?.into_owned();
+    let key = vm
+        .get_integer((request_ptr + new_syscalls::StorageReadRequest::key_offset())?)?
+        .into_owned();
 
-    execute_coroutine(cache_contract_storage::<PCS>(key, vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(cache_contract_storage::<PCS>(
+        key,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const CACHE_CONTRACT_STORAGE_SYSCALL_REQUEST_ADDRESS: &str = indoc! {r#"
@@ -1812,7 +2206,13 @@ where
     let offset = StorageRead::request_offset() + StorageReadRequest::address_offset();
     let key = vm.get_integer((syscall_ptr + offset)?)?.into_owned();
 
-    execute_coroutine(cache_contract_storage::<PCS>(key, vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(cache_contract_storage::<PCS>(
+        key,
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 pub const GET_OLD_BLOCK_NUMBER_AND_HASH: &str = indoc! {r#"
 	(
@@ -1834,12 +2234,19 @@ pub async fn get_old_block_number_and_hash_async<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    let execution_helper: ExecutionHelperWrapper<PCS> = exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
-    let (old_block_number, old_block_hash) = execution_helper.get_old_block_number_and_hash().await?;
+    let execution_helper: ExecutionHelperWrapper<PCS> =
+        exec_scopes.get(vars::scopes::EXECUTION_HELPER)?;
+    let (old_block_number, old_block_hash) =
+        execution_helper.get_old_block_number_and_hash().await?;
 
-    let ids_old_block_number = get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
+    let ids_old_block_number =
+        get_integer_from_var_name(vars::ids::OLD_BLOCK_NUMBER, vm, ids_data, ap_tracking)?;
     if old_block_number != ids_old_block_number {
-        log::warn!("old_block_number ({}) != ids_old_block_number ({})", old_block_number, ids_old_block_number);
+        log::warn!(
+            "old_block_number ({}) != ids_old_block_number ({})",
+            old_block_number,
+            ids_old_block_number
+        );
         return Err(HintError::AssertionFailed(
             "Inconsistent block number. The constant STORED_BLOCK_HASH_BUFFER is probably out of sync."
                 .to_string()
@@ -1847,7 +2254,13 @@ where
         ));
     }
 
-    insert_value_from_var_name(vars::ids::OLD_BLOCK_HASH, old_block_hash, vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::OLD_BLOCK_HASH,
+        old_block_hash,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -1862,7 +2275,12 @@ pub fn get_old_block_number_and_hash<PCS>(
 where
     PCS: PerContractStorage + 'static,
 {
-    execute_coroutine(get_old_block_number_and_hash_async::<PCS>(vm, exec_scopes, ids_data, ap_tracking))?
+    execute_coroutine(get_old_block_number_and_hash_async::<PCS>(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+    ))?
 }
 
 pub const FETCH_RESULT: &str = indoc! {r#"
@@ -1884,7 +2302,8 @@ pub fn fetch_result(
 ) -> Result<(), HintError> {
     // Fetch the result, up to 100 elements.
     let retdata = get_ptr_from_var_name(vars::ids::RETDATA, vm, ids_data, ap_tracking)?;
-    let retdata_size = get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
+    let retdata_size =
+        get_integer_from_var_name(vars::ids::RETDATA_SIZE, vm, ids_data, ap_tracking)?;
 
     // validated is the string "VALID" translated to a felt.
     let validated = get_constant(vars::constants::VALIDATED, constants)?;

@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
-use std::sync::Arc;
-use cairo_vm::Felt252;
-use tokio::sync::Mutex;
-use arcane_os_type::hash::Hash;
 use crate::starkware_utils::serializable::Serializable;
 use crate::storage::error::StorageError;
+use arcane_os_type::hash::Hash;
+use cairo_vm::Felt252;
+use std::marker::PhantomData;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub const HASH_BYTES: usize = 32;
 
@@ -21,7 +21,10 @@ pub trait HashFunctionType {
 pub trait Storage: Sync + Send {
     async fn set_value(&mut self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StorageError>;
 
-    fn get_value(&self, key: &[u8]) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send;
+    fn get_value(
+        &self,
+        key: &[u8],
+    ) -> impl futures::Future<Output = Result<Option<Vec<u8>>, StorageError>> + Send;
 }
 
 #[allow(async_fn_in_trait)]
@@ -37,13 +40,15 @@ pub trait Fact<S: Storage, H: HashFunctionType>: DbObject {
     }
 }
 
-
 #[allow(async_fn_in_trait)]
 pub trait DbObject: Serializable {
     fn db_key(suffix: &[u8]) -> Vec<u8> {
         let prefix = Self::prefix();
         let elements = vec![&prefix, ":".as_bytes(), suffix];
-        elements.into_iter().flat_map(|v| v.iter().cloned()).collect()
+        elements
+            .into_iter()
+            .flat_map(|v| v.iter().cloned())
+            .collect()
     }
 
     fn get<S: Storage>(

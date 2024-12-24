@@ -1,5 +1,5 @@
-use cairo_vm::Felt252;
 use cairo_type_derive::FieldOffsetGetters;
+use cairo_vm::Felt252;
 
 #[derive(FieldOffsetGetters)]
 pub struct BigInt3 {

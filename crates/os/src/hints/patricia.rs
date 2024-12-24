@@ -1,6 +1,23 @@
-use std::collections::HashMap;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name, insert_value_from_var_name, insert_value_into_ap};
+use crate::cairo_types::dict_access::DictAccess;
+use crate::cairo_types::trie::NodeEdge;
+use crate::hints::types::{
+    get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner,
+    Preimage,
+};
+use crate::hints::vars;
+use crate::starknet::starknet_storage::StorageLeaf;
+use crate::starkware_utils::commitment_tree::base_types::{
+    DescentMap, DescentPath, DescentStart, Height, NodePath,
+};
+use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
+use crate::starkware_utils::commitment_tree::update_tree::{
+    build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree,
+};
+use crate::utils::get_variable_from_root_exec_scope;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, get_relocatable_from_var_name,
+    insert_value_from_var_name, insert_value_into_ap,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
@@ -8,18 +25,11 @@ use cairo_vm::types::errors::math_errors::MathError;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use crate::cairo_types::dict_access::DictAccess;
-use crate::cairo_types::trie::NodeEdge;
-use crate::hints::types::{get_hash_builtin_fields, skip_verification_if_configured, PatriciaSkipValidationRunner, Preimage};
-use crate::hints::vars;
-use crate::starknet::starknet_storage::StorageLeaf;
-use crate::starkware_utils::commitment_tree::base_types::{DescentMap, DescentPath, DescentStart, Height, NodePath};
-use crate::starkware_utils::commitment_tree::patricia_tree::patricia_guess_descents::patricia_guess_descents;
-use crate::starkware_utils::commitment_tree::update_tree::{build_update_tree, decode_node, DecodeNodeCase, DecodedNode, UpdateTree};
-use crate::utils::get_variable_from_root_exec_scope;
+use std::collections::HashMap;
 
 pub const SET_SIBLINGS: &str = "memory[ids.siblings], ids.word = descend";
 
@@ -38,7 +48,13 @@ pub fn set_siblings(
     let siblings = get_ptr_from_var_name(vars::ids::SIBLINGS, vm, ids_data, ap_tracking)?;
     vm.insert_value(siblings, Felt252::from(length.0))?;
 
-    insert_value_from_var_name(vars::ids::WORD, Felt252::from(relative_path.0), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::WORD,
+        Felt252::from(relative_path.0),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -78,10 +94,15 @@ pub fn set_bit(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let edge_ptr = get_relocatable_from_var_name(vars::ids::EDGE, vm, ids_data, ap_tracking)?;
-    let edge_path = vm.get_integer((edge_ptr + NodeEdge::path_offset())?)?.into_owned();
+    let edge_path = vm
+        .get_integer((edge_ptr + NodeEdge::path_offset())?)?
+        .into_owned();
     let new_length = {
-        let new_length = get_integer_from_var_name(vars::ids::NEW_LENGTH, vm, ids_data, ap_tracking)?;
-        new_length.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(new_length)))?
+        let new_length =
+            get_integer_from_var_name(vars::ids::NEW_LENGTH, vm, ids_data, ap_tracking)?;
+        new_length
+            .to_u64()
+            .ok_or(MathError::Felt252ToU64Conversion(Box::new(new_length)))?
     };
 
     let bit = (edge_path.to_biguint() >> new_length) & BigUint::from(1u64);
@@ -137,7 +158,9 @@ pub fn assert_case_is_right(
     let case: DecodeNodeCase = exec_scopes.get(vars::scopes::CASE)?;
     match case {
         DecodeNodeCase::Right => Ok(()),
-        _ => Err(HintError::AssertionFailed("case != 'right".to_string().into_boxed_str())),
+        _ => Err(HintError::AssertionFailed(
+            "case != 'right".to_string().into_boxed_str(),
+        )),
     }
 }
 
@@ -171,8 +194,20 @@ pub fn split_descend(
     let length = descend.0;
     let word = descend.1;
 
-    insert_value_from_var_name(vars::ids::LENGTH, Felt252::from(length.0), vm, ids_data, ap_tracking)?;
-    insert_value_from_var_name(vars::ids::WORD, Felt252::from(word.0), vm, ids_data, ap_tracking)?;
+    insert_value_from_var_name(
+        vars::ids::LENGTH,
+        Felt252::from(length.0),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
+    insert_value_from_var_name(
+        vars::ids::WORD,
+        Felt252::from(word.0),
+        vm,
+        ids_data,
+        ap_tracking,
+    )?;
 
     Ok(())
 }
@@ -194,9 +229,9 @@ pub fn height_is_zero_or_len_node_preimage_is_two(
         Felt252::ONE
     } else {
         let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
-        let preimage_value = preimage
-            .get(node.as_ref())
-            .ok_or(HintError::CustomHint("No preimage found for node".to_string().into_boxed_str()))?;
+        let preimage_value = preimage.get(node.as_ref()).ok_or(HintError::CustomHint(
+            "No preimage found for node".to_string().into_boxed_str(),
+        ))?;
         Felt252::from(preimage_value.len() == 2)
     };
 
@@ -234,20 +269,27 @@ pub fn prepare_preimage_validation_non_deterministic_hashes(
     let (x_offset, y_offset, result_offset) = get_hash_builtin_fields(exec_scopes)?;
 
     let node: UpdateTree<StorageLeaf> = exec_scopes.get(vars::scopes::NODE)?;
-    let node = node.ok_or(HintError::AssertionFailed("'node' should not be None".to_string().into_boxed_str()))?;
+    let node = node.ok_or(HintError::AssertionFailed(
+        "'node' should not be None".to_string().into_boxed_str(),
+    ))?;
 
     let preimage: Preimage = exec_scopes.get(vars::scopes::PREIMAGE)?;
 
     let ids_node = get_integer_from_var_name(vars::ids::NODE, vm, ids_data, ap_tracking)?;
 
-    let DecodedNode { left_child, right_child, case } = decode_node(&node)?;
+    let DecodedNode {
+        left_child,
+        right_child,
+        case,
+    } = decode_node(&node)?;
 
     exec_scopes.insert_value(vars::scopes::LEFT_CHILD, left_child.clone());
     exec_scopes.insert_value(vars::scopes::RIGHT_CHILD, right_child.clone());
     exec_scopes.insert_value(vars::scopes::CASE, case.clone());
 
-    let node_preimage =
-        preimage.get(&ids_node).ok_or(HintError::CustomHint("Node preimage not found".to_string().into_boxed_str()))?;
+    let node_preimage = preimage.get(&ids_node).ok_or(HintError::CustomHint(
+        "Node preimage not found".to_string().into_boxed_str(),
+    ))?;
     let left_hash = node_preimage[0];
     let right_hash = node_preimage[1];
 
@@ -309,7 +351,8 @@ pub fn build_descent_map(
     // Build modifications list.
     let n_updates = get_integer_from_var_name(vars::ids::N_UPDATES, vm, ids_data, ap_tracking)?;
     let n_updates = felt_to_usize(&n_updates)?;
-    let update_ptr_address = get_ptr_from_var_name(vars::ids::UPDATE_PTR, vm, ids_data, ap_tracking)?;
+    let update_ptr_address =
+        get_ptr_from_var_name(vars::ids::UPDATE_PTR, vm, ids_data, ap_tracking)?;
 
     let modifications = {
         let mut modifications = vec![];
@@ -318,20 +361,32 @@ pub fn build_descent_map(
             let tree_index = vm.get_integer((curr_update_ptr + DictAccess::key_offset())?)?;
             let new_value = vm.get_integer((curr_update_ptr + DictAccess::new_value_offset())?)?;
 
-            modifications.push((tree_index.into_owned().to_biguint(), StorageLeaf::new(new_value.into_owned())));
+            modifications.push((
+                tree_index.into_owned().to_biguint(),
+                StorageLeaf::new(new_value.into_owned()),
+            ));
         }
         modifications
     };
 
     // Build the descent map.
-    let height: Height = get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.try_into()?;
-    let prev_root = get_integer_from_var_name(vars::ids::PREV_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
-    let new_root = get_integer_from_var_name(vars::ids::NEW_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
+    let height: Height =
+        get_integer_from_var_name(vars::ids::HEIGHT, vm, ids_data, ap_tracking)?.try_into()?;
+    let prev_root =
+        get_integer_from_var_name(vars::ids::PREV_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
+    let new_root =
+        get_integer_from_var_name(vars::ids::NEW_ROOT, vm, ids_data, ap_tracking)?.to_biguint();
 
     let preimage: &Preimage = exec_scopes.get_ref(vars::scopes::PREIMAGE)?;
 
     let node: UpdateTree<StorageLeaf> = build_update_tree(height, modifications);
-    let descent_map = patricia_guess_descents::<StorageLeaf>(height, node.clone(), preimage, prev_root, new_root)?;
+    let descent_map = patricia_guess_descents::<StorageLeaf>(
+        height,
+        node.clone(),
+        preimage,
+        prev_root,
+        new_root,
+    )?;
 
     exec_scopes.insert_value(vars::scopes::NODE, node.clone());
     // Notes:
@@ -346,8 +401,14 @@ pub fn build_descent_map(
     exec_scopes.insert_value(vars::scopes::DESCENT_MAP, descent_map);
 
     let patricia_skip_validation_runner: Option<PatriciaSkipValidationRunner> =
-        get_variable_from_root_exec_scope(exec_scopes, vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER)?;
-    exec_scopes.insert_value(vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER, patricia_skip_validation_runner);
+        get_variable_from_root_exec_scope(
+            exec_scopes,
+            vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER,
+        )?;
+    exec_scopes.insert_value(
+        vars::scopes::PATRICIA_SKIP_VALIDATION_RUNNER,
+        patricia_skip_validation_runner,
+    );
 
     Ok(())
 }

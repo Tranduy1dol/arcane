@@ -1,5 +1,5 @@
-use num_bigint::BigUint;
 use crate::storage::storage::{Fact, HashFunctionType, Storage};
+use num_bigint::BigUint;
 
 pub trait InnerNodeFact<S, H>: Fact<S, H>
 where

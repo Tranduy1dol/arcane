@@ -1,17 +1,19 @@
-use std::collections::{HashMap, HashSet};
-use cairo_vm::Felt252;
-use starknet::providers::jsonrpc::HttpTransport;
-use starknet::providers::{JsonRpcClient, Provider, ProviderError};
-use starknet_core::types::{BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash};
-use starknet_types_core::felt::Felt;
+use crate::utils::get_subcalled_contracts_from_tx_traces;
+use crate::ProveBlockError;
+use arcane_os_type::casm_contract_class::GenericCasmContractClass;
 use arcane_os_type::class_hash_utils::ContractClassComponentHashes;
 use arcane_os_type::compiled_class::GenericCompiledClass;
-use arcane_os_type::sierra_contract_class::GenericSierraContractClass;
-use arcane_os_type::casm_contract_class::GenericCasmContractClass;
 use arcane_os_type::deprecated_compiled_class::GenericDeprecatedCompiledClass;
+use arcane_os_type::sierra_contract_class::GenericSierraContractClass;
+use cairo_vm::Felt252;
 use rpc_client::client::RpcClient;
-use crate::ProveBlockError;
-use crate::utils::get_subcalled_contracts_from_tx_traces;
+use starknet::providers::jsonrpc::HttpTransport;
+use starknet::providers::{JsonRpcClient, Provider, ProviderError};
+use starknet_core::types::{
+    BlockId, MaybePendingStateUpdate, StarknetError, StateDiff, TransactionTraceWithHash,
+};
+use starknet_types_core::felt::Felt;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct FormattedStateUpdate {
@@ -37,19 +39,27 @@ pub(crate) async fn get_formatted_state_update(
 
     let (accessed_addresses, accessed_classes) = get_subcalled_contracts_from_tx_traces(&traces);
 
-    let declared_classes: HashSet<_> = state_diff.declared_classes.iter().map(|declared_item| Felt252::from(declared_item.class_hash)).collect();
+    let declared_classes: HashSet<_> = state_diff
+        .declared_classes
+        .iter()
+        .map(|declared_item| Felt252::from(declared_item.class_hash))
+        .collect();
 
     let mut class_hash_to_compiled_class_hash: HashMap<Felt252, Felt252> = HashMap::new();
-    let (compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_component_hashes) =
-    build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
+    let (
+        compiled_contract_classes,
+        deprecated_compiled_contract_classes,
+        declared_class_hash_component_hashes,
+    ) = build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash(
         provider,
         previous_block_id,
         block_id,
         &accessed_addresses,
         &declared_classes,
         &accessed_classes,
-        &mut class_hash_to_compiled_class_hash
-    ).await?;
+        &mut class_hash_to_compiled_class_hash,
+    )
+    .await?;
 
     format_declared_classes(&state_diff, &mut class_hash_to_compiled_class_hash);
 
@@ -81,7 +91,8 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
     ProveBlockError,
 > {
     let mut compiled_contract_classes: HashMap<Felt252, GenericCasmContractClass> = HashMap::new();
-    let mut deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> = HashMap::new();
+    let mut deprecated_compiled_contract_classes: HashMap<Felt252, GenericDeprecatedCompiledClass> =
+        HashMap::new();
 
     for contract_address in accessed_addresses {
         // In case there is a class change, we need to get the compiled class for
@@ -96,11 +107,12 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
             &mut compiled_contract_classes,
             &mut deprecated_compiled_contract_classes,
         )
-            .await
+        .await
         {
             match e {
-                ProveBlockError::RpcError(ProviderError::StarknetError(StarknetError::ContractNotFound)) => {
-                }
+                ProveBlockError::RpcError(ProviderError::StarknetError(
+                    StarknetError::ContractNotFound,
+                )) => {}
                 _ => return Err(e),
             }
         }
@@ -113,11 +125,14 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
             &mut compiled_contract_classes,
             &mut deprecated_compiled_contract_classes,
         )
-            .await?;
+        .await?;
     }
 
     for class_hash in accessed_classes {
-        let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
+        let contract_class = provider
+            .starknet_rpc()
+            .get_class(block_id, class_hash)
+            .await?;
         add_compiled_class_to_os_input(
             *Felt252::from(class_hash),
             contract_class,
@@ -129,14 +144,24 @@ async fn build_compiled_class_and_maybe_update_class_hash_to_compiled_class_hash
 
     let mut declared_class_hash_to_component_hashes = HashMap::new();
     for class_hash in declared_classes {
-        let contract_class = provider.starknet_rpc().get_class(block_id, class_hash).await?;
-        if let starknet::core::types::ContractClass::Sierra(flattened_sierra_class) = &contract_class {
-            let component_hashes = ContractClassComponentHashes::from(flattened_sierra_class.clone());
+        let contract_class = provider
+            .starknet_rpc()
+            .get_class(block_id, class_hash)
+            .await?;
+        if let starknet::core::types::ContractClass::Sierra(flattened_sierra_class) =
+            &contract_class
+        {
+            let component_hashes =
+                ContractClassComponentHashes::from(flattened_sierra_class.clone());
             declared_class_hash_to_component_hashes.insert(*class_hash, component_hashes);
         }
     }
 
-    Ok((compiled_contract_classes, deprecated_compiled_contract_classes, declared_class_hash_to_component_hashes))
+    Ok((
+        compiled_contract_classes,
+        deprecated_compiled_contract_classes,
+        declared_class_hash_to_component_hashes,
+    ))
 }
 
 async fn add_compiled_class_from_contract_to_os_input(
@@ -147,7 +172,9 @@ async fn add_compiled_class_from_contract_to_os_input(
     compiled_contract_classes: &mut HashMap<Felt252, GenericCasmContractClass>,
     deprecated_compiled_contract_classes: &mut HashMap<Felt252, GenericDeprecatedCompiledClass>,
 ) -> Result<(), ProveBlockError> {
-    let class_hash = provider.get_class_hash_at(block_id, contract_address).await?;
+    let class_hash = provider
+        .get_class_hash_at(block_id, contract_address)
+        .await?;
     let contract_class = provider.get_class(block_id, class_hash).await?;
 
     add_compiled_class_to_os_input(
@@ -174,9 +201,13 @@ fn add_compiled_class_to_os_input(
     let compiled_class_hash = compiled_class.class_hash()?;
 
     if matches!(&compiled_class, GenericCompiledClass::Cairo0(_)) {
-        log::warn!("Skipping deprecated class for ch_to_cch: 0x{:x}", class_hash);
+        log::warn!(
+            "Skipping deprecated class for ch_to_cch: 0x{:x}",
+            class_hash
+        );
     } else {
-        class_hash_to_compiled_class_hash.insert(Felt252::from(class_hash), compiled_class_hash.into());
+        class_hash_to_compiled_class_hash
+            .insert(Felt252::from(class_hash), compiled_class_hash.into());
     }
 
     match compiled_class {
@@ -209,7 +240,10 @@ fn compile_contract_class(
     Ok(compiled_class)
 }
 
-fn format_declared_classes(state_diff: &StateDiff, class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>) {
+fn format_declared_classes(
+    state_diff: &StateDiff,
+    class_hash_to_compiled_class_hash: &mut HashMap<Felt252, Felt252>,
+) {
     // The comment below explicits that the value should be 0 for new classes:
     // From execute_transactions.cairo
     // Note that prev_value=0 enforces that a class may be declared only once.

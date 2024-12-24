@@ -1,9 +1,9 @@
-use std::rc::Rc;
-use blockifier::execution::execution_utils::ReadOnlySegments;
-use cairo_vm::types::relocatable::Relocatable;
-use tokio::sync::RwLock;
 use crate::execution::helper::ExecutionHelperWrapper;
 use crate::starknet::starknet_storage::PerContractStorage;
+use blockifier::execution::execution_utils::ReadOnlySegments;
+use cairo_vm::types::relocatable::Relocatable;
+use std::rc::Rc;
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct OsSyscallHandler<PCS: PerContractStorage>

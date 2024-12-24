@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+arcane-os-type = { workspace = true }
 ark-ec = { workspace = true }
 ark-secp256k1 = { workspace = true }
 ark-secp256r1 = { workspace = true }
@@ -13,6 +14,7 @@ c-kzg = { workspace = true }
 cairo-lang-starknet-classes = { workspace = true }
 cairo-type-derive = { workspace = true }
 cairo-vm = { workspace = true }
+futures = { workspace = true }
 indoc = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
@@ -24,9 +26,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 starknet-core = { workspace = true }
 starknet-crypto = { workspace = true }
+starknet-types-core = { workspace = true }
 starknet_api = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-arcane-os-type = { workspace = true }
-starknet-types-core = { workspace = true }
-futures = { workspace = true }

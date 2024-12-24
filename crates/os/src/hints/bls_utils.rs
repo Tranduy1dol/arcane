@@ -1,5 +1,5 @@
-use cairo_vm::Felt252;
 use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::Felt252;
 use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_integer::Integer;
@@ -18,7 +18,11 @@ pub fn split(num: Felt252) -> Result<Vec<Felt252>, HintError> {
         a.push(residue);
     }
     if num.abs() >= BigInt::from(2).pow(127) {
-        return Err(HintError::AssertionFailed("remainder should be less than 2**127".to_string().into_boxed_str()));
+        return Err(HintError::AssertionFailed(
+            "remainder should be less than 2**127"
+                .to_string()
+                .into_boxed_str(),
+        ));
     }
     a.push(num);
 

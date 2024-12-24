@@ -1,8 +1,8 @@
-use std::ops::Deref;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash};
 use starknet_types_core::felt::Felt;
+use std::ops::Deref;
 
 const EMPTY_HASH: [u8; 32] = [0; 32];
 
@@ -123,7 +123,7 @@ impl From<GenericClassHash> for CompiledClassHash {
 
 impl From<GenericClassHash> for Felt {
     fn from(class_hash: GenericClassHash) -> Self {
-        Felt::from_bytes_be(&class_hash.0.0)
+        Felt::from_bytes_be(&class_hash.0 .0)
     }
 }
 

@@ -13,45 +13,49 @@ pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
     // Generate code to implement the trait
     let expanded = match &input.data {
-        Data::Struct(data_struct) => match &data_struct.fields {
-            Fields::Named(fields) => {
-                let field_names_read = fields.named.iter().map(|f| &f.ident);
-                let field_names_write = field_names_read.clone();
-                let n_fields = field_names_read.clone().count();
-                let field_values = field_names_read.clone().enumerate().map(|(index, field_name)| {
+        Data::Struct(data_struct) => {
+            match &data_struct.fields {
+                Fields::Named(fields) => {
+                    let field_names_read = fields.named.iter().map(|f| &f.ident);
+                    let field_names_write = field_names_read.clone();
+                    let n_fields = field_names_read.clone().count();
+                    let field_values = field_names_read.clone().enumerate().map(
+                        |(index, field_name)| {
+                            quote! {
+                                let #field_name = vm.get_integer((address + #index)?)?.into_owned();
+                            }
+                        },
+                    );
+
                     quote! {
-                        let #field_name = vm.get_integer((address + #index)?)?.into_owned();
-                    }
-                });
+                        impl CairoType for #struct_ident {
+                            fn from_memory(vm: &VirtualMachine, address: Relocatable) -> Result<Self, MemoryError> {
+                             #(#field_values)*
+                                Ok(Self {
+                                    #( #field_names_read ),*
+                                })
+                            }
+                            fn to_memory(&self, vm: &mut VirtualMachine, address: Relocatable) -> Result<(), MemoryError> {
+                                let mut offset = 0;
+                                #(vm.insert_value((address + offset)?, &self.#field_names_write)?; offset += 1;)*
 
-                quote! {
-                    impl CairoType for #struct_ident {
-                        fn from_memory(vm: &VirtualMachine, address: Relocatable) -> Result<Self, MemoryError> {
-                         #(#field_values)*
-                            Ok(Self {
-                                #( #field_names_read ),*
-                            })
-                        }
-                        fn to_memory(&self, vm: &mut VirtualMachine, address: Relocatable) -> Result<(), MemoryError> {
-                            let mut offset = 0;
-                            #(vm.insert_value((address + offset)?, &self.#field_names_write)?; offset += 1;)*
+                                Ok(())
+                            }
 
-                            Ok(())
-                        }
-
-                        fn n_fields() -> usize {
-                            #n_fields
+                            fn n_fields() -> usize {
+                                #n_fields
+                            }
                         }
                     }
                 }
-            }
-            Fields::Unnamed(_) | Fields::Unit => {
-                // Unsupported field types
-                quote! {
-                    compile_error!("CairoType only supports structs with named fields");
+                Fields::Unnamed(_) | Fields::Unit => {
+                    // Unsupported field types
+                    quote! {
+                        compile_error!("CairoType only supports structs with named fields");
+                    }
                 }
             }
-        },
+        }
         Data::Enum(_) | Data::Union(_) => {
             // Unsupported data types
             quote! {
@@ -63,7 +67,6 @@ pub fn cairo_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     // Convert the generated code into a TokenStream and return it
     proc_macro::TokenStream::from(expanded)
 }
-
 
 #[proc_macro_derive(FieldOffsetGetters)]
 pub fn get_field_offsets_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

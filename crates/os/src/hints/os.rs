@@ -1,18 +1,19 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use cairo_vm::Felt252;
+use crate::hints::vars;
+use crate::io::input::StarknetOsInput;
+use crate::utils::{execute_coroutine, set_variable_in_root_exec_scope};
 use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::insert_value_into_ap;
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
-use crate::hints::vars;
-use crate::io::input::StarknetOsInput;
-use crate::utils::{execute_coroutine, set_variable_in_root_exec_scope};
+use std::collections::HashMap;
+use std::rc::Rc;
 
-pub const WRITE_FULL_OUTPUT_TO_MEM: &str = indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
+pub const WRITE_FULL_OUTPUT_TO_MEM: &str =
+    indoc! {r#"memory[fp + 19] = to_felt_or_relocatable(os_input.full_output)"#};
 
 pub fn write_full_output_to_mem(
     vm: &mut VirtualMachine,
@@ -24,7 +25,8 @@ pub fn write_full_output_to_mem(
     let os_input: Rc<StarknetOsInput> = exec_scopes.get(vars::scopes::OS_INPUT)?;
     let full_output = os_input.full_output;
 
-    vm.insert_value((vm.get_fp() + 19)?, Felt252::from(full_output)).map_err(HintError::Memory)
+    vm.insert_value((vm.get_fp() + 19)?, Felt252::from(full_output))
+        .map_err(HintError::Memory)
 }
 
 pub const CONFIGURE_KZG_MANAGER: &str = indoc! {r#"__serialize_data_availability_create_pages__ = True
@@ -37,7 +39,13 @@ pub fn configure_kzg_manager(
     ap_tracking: &ApTracking,
     constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    execute_coroutine(configure_kzg_manager_async(vm, exec_scopes, ids_data, ap_tracking, constants))?
+    execute_coroutine(configure_kzg_manager_async(
+        vm,
+        exec_scopes,
+        ids_data,
+        ap_tracking,
+        constants,
+    ))?
 }
 pub async fn configure_kzg_manager_async(
     _vm: &mut VirtualMachine,
@@ -46,14 +54,19 @@ pub async fn configure_kzg_manager_async(
     _ap_tracking: &ApTracking,
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
-    set_variable_in_root_exec_scope(exec_scopes, vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES, true);
+    set_variable_in_root_exec_scope(
+        exec_scopes,
+        vars::scopes::SERIALIZE_DATA_AVAILABILITY_CREATE_PAGES,
+        true,
+    );
 
     // We don't leave kzg_manager in scope here, it can be obtained through execution_helper later
 
     Ok(())
 }
 
-pub const SET_AP_TO_PREV_BLOCK_HASH: &str = indoc! {r#"memory[ap] = to_felt_or_relocatable(os_input.prev_block_hash)"#};
+pub const SET_AP_TO_PREV_BLOCK_HASH: &str =
+    indoc! {r#"memory[ap] = to_felt_or_relocatable(os_input.prev_block_hash)"#};
 
 pub fn set_ap_to_prev_block_hash(
     vm: &mut VirtualMachine,
@@ -68,7 +81,8 @@ pub fn set_ap_to_prev_block_hash(
     Ok(())
 }
 
-pub const SET_AP_TO_NEW_BLOCK_HASH: &str = "memory[ap] = to_felt_or_relocatable(os_input.new_block_hash)";
+pub const SET_AP_TO_NEW_BLOCK_HASH: &str =
+    "memory[ap] = to_felt_or_relocatable(os_input.new_block_hash)";
 
 pub fn set_ap_to_new_block_hash(
     vm: &mut VirtualMachine,

@@ -1,15 +1,17 @@
-use std::collections::HashMap;
-use cairo_vm::Felt252;
-use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name};
+use crate::hints::vars;
+use crate::utils::get_variable_from_root_exec_scope;
+use cairo_vm::hint_processor::builtin_hint_processor::hint_utils::{
+    get_integer_from_var_name, get_ptr_from_var_name, insert_value_from_var_name,
+};
 use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::hint_processor::hint_processor_utils::felt_to_usize;
 use cairo_vm::serde::deserialize_program::ApTracking;
 use cairo_vm::types::exec_scope::ExecutionScopes;
 use cairo_vm::vm::errors::hint_errors::HintError;
 use cairo_vm::vm::vm_core::VirtualMachine;
+use cairo_vm::Felt252;
 use indoc::indoc;
-use crate::hints::vars;
-use crate::utils::get_variable_from_root_exec_scope;
+use std::collections::HashMap;
 
 #[rustfmt::skip]
 
@@ -43,21 +45,36 @@ pub fn search_sorted_optimistic(
     _constants: &HashMap<String, Felt252>,
 ) -> Result<(), HintError> {
     let array_ptr = get_ptr_from_var_name(vars::ids::ARRAY_PTR, vm, ids_data, ap_tracking)?;
-    let elm_size = felt_to_usize(&get_integer_from_var_name(vars::ids::ELM_SIZE, vm, ids_data, ap_tracking)?)?;
+    let elm_size = felt_to_usize(&get_integer_from_var_name(
+        vars::ids::ELM_SIZE,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?)?;
 
     if elm_size == 0 {
-        return Err(HintError::AssertionFailed("elm_size is zero".to_string().into_boxed_str()));
+        return Err(HintError::AssertionFailed(
+            "elm_size is zero".to_string().into_boxed_str(),
+        ));
     }
 
-    let n_elms = felt_to_usize(&get_integer_from_var_name(vars::ids::N_ELMS, vm, ids_data, ap_tracking)?)?;
+    let n_elms = felt_to_usize(&get_integer_from_var_name(
+        vars::ids::N_ELMS,
+        vm,
+        ids_data,
+        ap_tracking,
+    )?)?;
     let find_element_max_size: Option<usize> =
         get_variable_from_root_exec_scope(exec_scopes, vars::scopes::FIND_ELEMENT_MAX_SIZE)?;
 
     if let Some(max_size) = find_element_max_size {
         if n_elms > max_size {
             return Err(HintError::AssertionFailed(
-                format!("find_element() can only be used with n_elms<={}. Got: n_elms={}.", max_size, n_elms)
-                    .into_boxed_str(),
+                format!(
+                    "find_element() can only be used with n_elms<={}. Got: n_elms={}.",
+                    max_size, n_elms
+                )
+                .into_boxed_str(),
             ));
         }
     }

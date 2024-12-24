@@ -1,6 +1,6 @@
-use cairo_vm::Felt252;
-use cairo_vm::vm::errors::hint_errors::HintError;
 use blockifier::execution::syscalls::hint_processor::SyscallExecutionError as BlockifierSyscallError;
+use cairo_vm::vm::errors::hint_errors::HintError;
+use cairo_vm::Felt252;
 use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -44,7 +44,10 @@ impl TryFrom<Felt252> for SyscallSelector {
     fn try_from(raw_selector: Felt252) -> Result<Self, Self::Error> {
         // Remove leading zero bytes from selector.
         let selector_bytes = raw_selector.to_bytes_be();
-        let first_non_zero = selector_bytes.iter().position(|&byte| byte != b'\0').unwrap_or(32);
+        let first_non_zero = selector_bytes
+            .iter()
+            .position(|&byte| byte != b'\0')
+            .unwrap_or(32);
 
         match &selector_bytes[first_non_zero..] {
             b"CallContract" => Ok(Self::CallContract),
@@ -79,7 +82,9 @@ impl TryFrom<Felt252> for SyscallSelector {
             b"SendMessageToL1" => Ok(Self::SendMessageToL1),
             b"StorageRead" => Ok(Self::StorageRead),
             b"StorageWrite" => Ok(Self::StorageWrite),
-            _ => Err(HintError::CustomHint(format!("Unknown syscall selector: {}", raw_selector).into())),
+            _ => Err(HintError::CustomHint(
+                format!("Unknown syscall selector: {}", raw_selector).into(),
+            )),
         }
     }
 }

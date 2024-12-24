@@ -49,7 +49,9 @@ where
     PCS: PerContractStorage,
 {
     fn clone(&self) -> Self {
-        Self { execution_helper: self.execution_helper.clone() }
+        Self {
+            execution_helper: self.execution_helper.clone(),
+        }
     }
 }
 

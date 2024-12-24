@@ -1,9 +1,9 @@
-use num_bigint::BigUint;
-use arcane_os_type::hash::Hash;
 use crate::starkware_utils::commitment_tree::base_types::{Length, NodePath};
 use crate::starkware_utils::commitment_tree::error::TreeError;
 use crate::starkware_utils::commitment_tree::patricia_tree::patricia_tree::EMPTY_NODE_HASH;
 use crate::storage::storage::HASH_BYTES;
+use arcane_os_type::hash::Hash;
+use num_bigint::BigUint;
 
 #[derive(thiserror::Error, Debug)]
 pub enum BinaryNodeError {
@@ -32,7 +32,10 @@ impl BinaryNodeFact {
             return Err(BinaryNodeError::RightNodeIsEmpty);
         }
 
-        Ok(Self { left_node, right_node })
+        Ok(Self {
+            left_node,
+            right_node,
+        })
     }
 }
 
@@ -47,12 +50,20 @@ impl EdgeNodeFact {
 
     pub fn new(bottom_node: Hash, path: NodePath, length: Length) -> Result<Self, TreeError> {
         verify_path_value(&path, length)?;
-        Ok(Self { bottom_node, edge_path: path, edge_length: length })
+        Ok(Self {
+            bottom_node,
+            edge_path: path,
+            edge_length: length,
+        })
     }
 
     pub fn new_unchecked(bottom_node: Hash, path: NodePath, length: Length) -> Self {
         debug_assert!(verify_path_value(&path, length).is_ok());
-        Self { bottom_node, edge_path: path, edge_length: length }
+        Self {
+            bottom_node,
+            edge_path: path,
+            edge_length: length,
+        }
     }
 }
 

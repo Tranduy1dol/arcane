@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::ops::Sub;
-use cairo_vm::Felt252;
 use cairo_vm::types::errors::math_errors::MathError;
+use cairo_vm::Felt252;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::ops::Sub;
 
 pub type TreeIndex = BigUint;
 
@@ -28,7 +28,9 @@ impl TryFrom<Felt252> for Height {
     type Error = MathError;
 
     fn try_from(value: Felt252) -> Result<Self, Self::Error> {
-        let height = value.to_u64().ok_or(MathError::Felt252ToU64Conversion(Box::new(value)))?;
+        let height = value
+            .to_u64()
+            .ok_or(MathError::Felt252ToU64Conversion(Box::new(value)))?;
         Ok(Self(height))
     }
 }
