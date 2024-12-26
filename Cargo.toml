@@ -1,56 +1,72 @@
 [workspace]
 resolver = "2"
 
-members = [
-  "crates/cairo-type-derive",
-  "crates/os",
-  "crates/os-type",
-  "crates/prove-block",
-  "crates/rpc-client",
-  "crates/rpc-replay",
-]
+members = ["crates/cairo-type-derive", "crates/os", "crates/prove-block"]
 
 [workspace.dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.75"
 arcane-os = { version = "0.1.0", path = "crates/os" }
-arcane-os-type = { version = "0.1.0", path = "crates/os-type" }
 ark-ec = "0.4.2"
 ark-secp256k1 = "0.4.0"
 ark-secp256r1 = "0.4.0"
-blockifier = { git = "https://github.com/Tranduy1dol/sequencer", rev = "50ac9347fed4b403390784433fc8471a23b8d6fd", features = [
+assert_matches = "1.5.0"
+async-stream = "0.3.5"
+base64 = "0.21.3"
+bitvec = { version = "1.0.1", features = ["serde"] }
+blockifier = { git = "https://github.com/keep-starknet-strange/blockifier", branch = "snos/callinfo-clone", features = [
+  "clone",
   "testing",
 ] }
 c-kzg = "1.0.3"
-cairo-lang-starknet-classes = "2.6.4"
 cairo-type-derive = { version = "0.1.0", path = "crates/cairo-type-derive" }
-cairo-vm = { git = "https://github.com/Tranduy1dol/cairo-vm", rev = "0274f0cb2d5b1d27cc06be9b44c59677c1b5f1db", features = [
+cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", rev = "a462d8d453d2510867c5e640ba1c5bccea6b644d", features = [
+  "extensive_hints",
   "cairo-1-hints",
 ] }
 flate2 = "1.0.32"
-futures = "0.3.31"
-indoc = "2.0.5"
-lazy_static = "1.5.0"
-log = "0.4.22"
-num-bigint = "0.4.6"
+futures = "0.3.30"
+futures-util = "0.3.30"
+heck = "0.4.1"
+hex = "0.4.3"
+indexmap = "1.9.2"
+indoc = "2"
+lazy_static = "1.4.0"
+log = "0.4.19"
+num-bigint = "0.4"
 num-integer = "0.1.45"
-num-traits = "0.2.19"
-reqwest = "0.12.9"
-rpc-client = { path = "crates/rpc-client" }
-rpc-replay = { version = "0.1.0", path = "crates/rpc-replay" }
-serde = "1.0.216"
-serde_json = "1.0.133"
-serde_with = "3.11.0"
+num-traits = "0.2.16"
+regex = "1.10.0"
+reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = { version = "1.0.105", features = ["arbitrary_precision"] }
+serde_with = "3.3.0"
+serde_yaml = "0.9.25"
 starknet = "0.11.0"
+starknet-crypto = "0.6.0"
+starknet_api = { version = "=0.7.0-dev.0", features = ["testing"] }
+thiserror = "1.0.48"
+tokio = { version = "1.36.0", features = ["rt-multi-thread"] }
+tokio-stream = "0.1.14"
+uuid = { version = "1.4.0", features = ["v4", "serde"] }
+zip = { version = "0.6.6", features = ["deflate-zlib"] }
+
+cairo-lang-casm = { version = "~2.5.4" }
+cairo-lang-defs = { version = "~2.5.4" }
+cairo-lang-diagnostics = { version = "~2.5.4" }
+cairo-lang-filesystem = { version = "~2.5.4" }
+cairo-lang-semantic = { version = "~2.5.4" }
+cairo-lang-sierra = { version = "~2.5.4" }
+cairo-lang-starknet = { version = "~2.5.4" }
+cairo-lang-syntax = { version = "~2.5.4" }
 starknet-core = "0.11.0"
-starknet-crypto = "0.6.2"
-starknet-gateway-types = { git = "https://github.com/Moonsong-Labs/pathfinder", rev = "9c19d9a37be8f447ec4548456c440ccbd0e44260" }
 starknet-types-core = { version = "0.1.5", features = [
   "hash",
   "prime-bigint",
   "std",
 ] }
-starknet_api = { git = "https://github.com/Tranduy1dol/sequencer", rev = "50ac9347fed4b403390784433fc8471a23b8d6fd", features = [
-  "testing",
-] }
-thiserror = "2.0.7"
-tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
+
+[workspace.dev-dependencies]
+getset = "0.1.2"
+pretty_assertions = "1.4.0"
+rand = "0.8.5"
+rstest = "0.18.2"

@@ -1,1 +1,1 @@
-pub mod compiled_class_hash_object;
+pub mod compiled_class_hash_objects;

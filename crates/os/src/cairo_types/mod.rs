@@ -1,9 +1,7 @@
-pub mod bigint;
-pub mod builtins;
-pub mod contract_class;
-pub mod dict_access;
-pub mod new_syscalls;
-pub mod structs;
-pub mod syscalls;
-pub mod traits;
-pub mod trie;
+pub(crate) mod bigint;
+pub(crate) mod builtins;
+pub(crate) mod dict_access;
+pub(crate) mod structs;
+pub(crate) mod syscalls;
+pub(crate) mod traits;
+pub(crate) mod trie;
